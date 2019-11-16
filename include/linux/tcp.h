@@ -248,7 +248,8 @@ struct tcp_sock {
 	void (*tcp_clean_acked)(struct sock *sk, u32 acked_seq);
 #endif
 	u32	snd_ssthresh;	/* Slow start size threshold		*/
-	u8	recvmsg_inq : 1;/* Indicate # of bytes in queue upon recvmsg */
+	u32	recvmsg_inq : 1,/* Indicate # of bytes in queue upon recvmsg */
+		fast_ack_mode:1;/* ack ASAP if >1 rcv_mss received? */
 	__cacheline_group_end(tcp_sock_read_rx);
 
 	/* TX read-write hotpath cache lines */

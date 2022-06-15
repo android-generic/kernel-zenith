@@ -511,6 +511,10 @@
 			Format: <int> (must be >=0)
 			Default: 64
 
+	autogroup=	[KNL] Enable or disable scheduler automatic task group
+			creation.
+			Format: <bool>
+
 	bau=		[X86_UV] Enable the BAU on SGI UV.  The default
 			behavior is to disable the BAU (i.e. bau=0).
 			Format: { "0" | "1" }
@@ -4044,8 +4048,6 @@
 			IOAPICs that may be present in the system.
 
 	noapictimer	[APIC,X86] Don't set up the APIC timer
-
-	noautogroup	Disable scheduler automatic task group creation.
 
 	nocache		[ARM,EARLY]
 

@@ -17,6 +17,7 @@
 #include "hif.h"
 #include "wow.h"
 #include "fw.h"
+#include "wmi.h"
 
 unsigned int ath11k_debug_mask;
 EXPORT_SYMBOL(ath11k_debug_mask);
@@ -122,6 +123,7 @@ static const struct ath11k_hw_params ath11k_hw_params[] = {
 		.tcl_ring_retry = true,
 		.tx_ring_size = DP_TCL_DATA_RING_SIZE,
 		.smp2p_wow_exit = false,
+		.coex_isolation = false,
 	},
 	{
 		.hw_rev = ATH11K_HW_IPQ6018_HW10,
@@ -205,6 +207,7 @@ static const struct ath11k_hw_params ath11k_hw_params[] = {
 		.tx_ring_size = DP_TCL_DATA_RING_SIZE,
 		.smp2p_wow_exit = false,
 		.support_fw_mac_sequence = false,
+		.coex_isolation = false,
 	},
 	{
 		.name = "qca6390 hw2.0",
@@ -290,6 +293,7 @@ static const struct ath11k_hw_params ath11k_hw_params[] = {
 		.tx_ring_size = DP_TCL_DATA_RING_SIZE,
 		.smp2p_wow_exit = false,
 		.support_fw_mac_sequence = true,
+		.coex_isolation = false,
 	},
 	{
 		.name = "qcn9074 hw1.0",
@@ -435,6 +439,7 @@ static const struct ath11k_hw_params ath11k_hw_params[] = {
 		.fw_wmi_diag_event = true,
 		.current_cc_support = true,
 		.dbr_debug_support = false,
+		.coex_isolation = false,
 	},
 	{
 		.name = "qca206x hw2.1",
@@ -521,6 +526,7 @@ static const struct ath11k_hw_params ath11k_hw_params[] = {
 		.tx_ring_size = DP_TCL_DATA_RING_SIZE,
 		.smp2p_wow_exit = false,
 		.support_fw_mac_sequence = true,
+		.coex_isolation = false,
 	},
 	{
 		.name = "wcn6855 hw2.1",
@@ -1637,6 +1643,18 @@ static void ath11k_core_pdev_destroy(struct ath11k_base *ab)
 	ath11k_debugfs_pdev_destroy(ab);
 }
 
+static int ath11k_core_config_coex_isolation(struct ath11k_base *ab)
+{
+       struct ath11k *ar = ath11k_ab_to_ar(ab, 0);
+       struct wmi_coex_config_params param;
+
+       memset(&param, 0, sizeof(struct wmi_coex_config_params));
+       param.config_type = WMI_COEX_CONFIG_ANTENNA_ISOLATION;
+       param.config_arg1 = WMI_COEX_ISOLATION_ARG1_DEFAUT;
+
+       return ath11k_wmi_send_coex_config(ar, &param);
+}
+
 static int ath11k_core_start(struct ath11k_base *ab)
 {
 	int ret;
@@ -1732,6 +1750,15 @@ static int ath11k_core_start(struct ath11k_base *ab)
 		ath11k_err(ab, "failed to send htt version request message: %d\n",
 			   ret);
 		goto err_reo_cleanup;
+	}
+
+	if (ab->hw_params.coex_isolation) {
+		ret = ath11k_core_config_coex_isolation(ab);
+		if (ret) {
+			ath11k_err(ab, "failed to set coex isolation: %d\n",
+					ret);
+			goto err_reo_cleanup;
+		}
 	}
 
 	return 0;

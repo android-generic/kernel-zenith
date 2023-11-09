@@ -152,7 +152,7 @@ MODULE_FIRMWARE(FIRMWARE_DCN_35_DMUB);
 #define PSP_FOOTER_BYTES 0x100
 
 /* Maximum backlight level. */
-#define AMDGPU_MAX_BL_LEVEL 0xFFFF
+#define AMDGPU_MAX_BL_LEVEL 0xFFF
 
 /**
  * DOC: overview

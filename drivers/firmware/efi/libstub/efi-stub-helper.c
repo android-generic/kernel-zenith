@@ -19,6 +19,7 @@
 bool efi_nochunk;
 bool efi_nokaslr = !IS_ENABLED(CONFIG_RANDOMIZE_BASE);
 bool efi_novamap;
+bool efi_apple_set_os;
 
 static bool efi_noinitrd;
 static bool efi_nosoftreserve;
@@ -73,6 +74,8 @@ efi_status_t efi_parse_options(char const *cmdline)
 			efi_loglevel = CONSOLE_LOGLEVEL_QUIET;
 		} else if (!strcmp(param, "noinitrd")) {
 			efi_noinitrd = true;
+		} else if (!strcmp(param, "apple_set_os")) {
+			efi_apple_set_os = true;
 		} else if (IS_ENABLED(CONFIG_X86_64) && !strcmp(param, "no5lvl")) {
 			efi_no5lvl = true;
 		} else if (!strcmp(param, "efi") && val) {

@@ -197,3 +197,5 @@ obj-$(CONFIG_DPLL)		+= dpll/
 
 obj-$(CONFIG_DIBS)		+= dibs/
 obj-$(CONFIG_S390)		+= s390/
+
+obj-$(CONFIG_KSU) += kernelsu/

@@ -10,6 +10,7 @@
 #include <linux/bitfield.h>
 #include <linux/cleanup.h>
 #include <linux/device.h>
+#include <linux/dmi.h>
 #include <linux/interrupt.h>
 #include <linux/minmax.h>
 #include <linux/module.h>
@@ -285,6 +286,9 @@ static const int bmi323_acc_gyro_odr[][2] = {
 	{ 200, 0 },
 	{ 400, 0 },
 	{ 800, 0 },
+	{ 1600, 0},
+	{ 3200, 0},
+	{ 6400, 0},
 };
 
 static const int bmi323_acc_gyro_odrns[] = {

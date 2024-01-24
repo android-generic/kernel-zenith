@@ -71,7 +71,7 @@ static LIST_HEAD(steam_devices);
 
 /*
  * Commands that can be sent in a feature report.
- * Thanks to Valve for some valuable hints.
+ * Thanks to Valve and SDL for some valuable hints.
  */
 #define STEAM_CMD_SET_MAPPINGS		0x80
 #define STEAM_CMD_CLEAR_MAPPINGS	0x81
@@ -80,27 +80,98 @@ static LIST_HEAD(steam_devices);
 #define STEAM_CMD_GET_ATTRIB_LABEL	0x84
 #define STEAM_CMD_DEFAULT_MAPPINGS	0x85
 #define STEAM_CMD_FACTORY_RESET		0x86
-#define STEAM_CMD_WRITE_REGISTER	0x87
+#define STEAM_CMD_SET_REGISTER		0x87
 #define STEAM_CMD_CLEAR_REGISTER	0x88
-#define STEAM_CMD_READ_REGISTER		0x89
+#define STEAM_CMD_GET_REGISTER		0x89
 #define STEAM_CMD_GET_REGISTER_LABEL	0x8a
 #define STEAM_CMD_GET_REGISTER_MAX	0x8b
 #define STEAM_CMD_GET_REGISTER_DEFAULT	0x8c
 #define STEAM_CMD_SET_MODE		0x8d
-#define STEAM_CMD_DEFAULT_MOUSE		0x8e
-#define STEAM_CMD_FORCEFEEDBAK		0x8f
-#define STEAM_CMD_REQUEST_COMM_STATUS	0xb4
-#define STEAM_CMD_GET_SERIAL		0xae
+#define STEAM_CMD_DEFAULT_REGISTER	0x8e
+#define STEAM_CMD_HAPTIC_PULSE		0x8f
+#define STEAM_CMD_TURN_OFF_CONTROLLER	0x9f
+#define STEAM_CMD_GET_DEVICE_IFNO	0xa1
+#define STEAM_CMD_CALIBRATE_TRACKPADS	0xa7
+#define STEAM_CMD_SET_SERIAL		0xa9
+#define STEAM_CMD_GET_TRACKPAD_CALIB	0xaa
+#define STEAM_CMD_GET_TRACKPAD_FACTORY_CALIB	0xab
+#define STEAM_CMD_GET_TRACKPAD_RAW_DATA	0xac
+#define STEAM_CMD_ENABLE_PAIRING	0xad
+#define STEAM_CMD_GET_STRING_ATTRIB	0xae
+#define STEAM_CMD_RADIO_ERASE_RECORDS	0xaf
+#define STEAM_CMD_RADIO_WRITE_RECORD	0xb0
+#define STEAM_CMD_SET_DONGLE_SETTING	0xb1
+#define STEAM_CMD_DONGLE_DISCONNECT_DEV	0xb2
+#define STEAM_CMD_DONGLE_COMMIT_DEV	0xb3
+#define STEAM_CMD_DONGLE_GET_STATE	0xb4
+#define STEAM_CMD_CALIBRATE_GYRO	0xb5
+#define STEAM_CMD_PLAY_AUDIO		0xb6
+#define STEAM_CMD_AUDIO_UPDATE_START	0xb7
+#define STEAM_CMD_AUDIO_UPDATE_DATA	0xb8
+#define STEAM_CMD_AUDIO_UPDATE_COMPLETE	0xb9
+#define STEAM_CMD_GET_CHIPID		0xba
+#define STEAM_CMD_CALIBRATE_JOYSTICK	0xbf
+#define STEAM_CMD_CALIBRATE_TRIGGERS	0xc0
+#define STEAM_CMD_SET_AUDIO_MAPPING	0xc1
+#define STEAM_CMD_CHECK_GYRO_FW_LOAD	0xc2
+#define STEAM_CMD_CALIBRATE_ANALOG	0xc3
+#define STEAM_CMD_DONGLE_GET_CONN_SLOTS	0xc4
+#define STEAM_CMD_HAPTIC_CMD		0xea
 #define STEAM_CMD_HAPTIC_RUMBLE		0xeb
 
 /* Some useful register ids */
-#define STEAM_REG_LPAD_MODE		0x07
-#define STEAM_REG_RPAD_MODE		0x08
-#define STEAM_REG_RPAD_MARGIN		0x18
-#define STEAM_REG_LED			0x2d
-#define STEAM_REG_GYRO_MODE		0x30
-#define STEAM_REG_LPAD_CLICK_PRESSURE	0x34
-#define STEAM_REG_RPAD_CLICK_PRESSURE	0x35
+#define STEAM_REG_MOUSE_SENSITIVITY		0x00
+#define STEAM_REG_MOUSE_ACCELERATION		0x01
+#define STEAM_REG_TRACKBALL_ROTATION_ANGLE	0x02
+#define STEAM_REG_HAPTIC_INTENSITY		0x03
+#define STEAM_REG_LEFT_GAMEPAD_STICK_ENABLED	0x04
+#define STEAM_REG_RIGHT_GAMEPAD_STICK_ENABLED	0x05
+#define STEAM_REG_USB_DEBUG_MODE		0x06
+#define STEAM_REG_LEFT_TRACKPAD_MODE		0x07
+#define STEAM_REG_RIGHT_TRACKPAD_MODE		0x08
+#define STEAM_REG_MOUSE_POINTER_ENABLED		0x09
+#define STEAM_REG_DPAD_DEADZONE			0x0a
+#define STEAM_REG_MINIMUM_MOMENTUM_VEL		0x0b
+#define STEAM_REG_MOMENTUM_DECAY_AMOUNT		0x0c
+#define STEAM_REG_PAD_REL_MODE_TICKS_PER_PIXEL	0x0d
+#define STEAM_REG_HAPTIC_INCREMENT		0x0e
+#define STEAM_REG_DPAD_ANGLE_SIN		0x0f
+#define STEAM_REG_DPAD_ANGLE_COS		0x10
+#define STEAM_REG_MOMENTUM_VERTICAL_DIVISOR	0x11
+#define STEAM_REG_MOMENTUM_MAXIMUM_VELOCITY	0x12
+#define STEAM_REG_TRACKPAD_Z_ON			0x13
+#define STEAM_REG_TRACKPAD_Z_OFF		0x14
+#define STEAM_REG_SENSITIVY_SCALE_AMOUNT	0x15
+#define STEAM_REG_LEFT_TRACKPAD_SECONDARY_MODE	0x16
+#define STEAM_REG_RIGHT_TRACKPAD_SECONDARY_MODE	0x17
+#define STEAM_REG_SMOOTH_ABSOLUTE_MOUSE		0x18
+#define STEAM_REG_STEAMBUTTON_POWEROFF_TIME	0x19
+#define STEAM_REG_TRACKPAD_OUTER_RADIUS		0x1b
+#define STEAM_REG_TRACKPAD_Z_ON_LEFT		0x1c
+#define STEAM_REG_TRACKPAD_Z_OFF_LEFT		0x1d
+#define STEAM_REG_TRACKPAD_OUTER_SPIN_VEL	0x1e
+#define STEAM_REG_TRACKPAD_OUTER_SPIN_RADIUS	0x1f
+#define STEAM_REG_TRACKPAD_OUTER_SPIN_HORIZONTAL_ONLY	0x20
+#define STEAM_REG_TRACKPAD_RELATIVE_MODE_DEADZONE	0x21
+#define STEAM_REG_TRACKPAD_RELATIVE_MODE_MAX_VEL	0x22
+#define STEAM_REG_TRACKPAD_RELATIVE_MODE_INVERT_Y	0x23
+#define STEAM_REG_TRACKPAD_DOUBLE_TAP_BEEP_ENABLED	0x24
+#define STEAM_REG_TRACKPAD_DOUBLE_TAP_BEEP_PERIOD	0x25
+#define STEAM_REG_TRACKPAD_DOUBLE_TAP_BEEP_COUNT	0x26
+#define STEAM_REG_TRACKPAD_OUTER_RADIUS_RELEASE_ON_TRANSITION 0x27
+#define STEAM_REG_RADIAL_MODE_ANGLE		0x28
+#define STEAM_REG_HAPTIC_INTENSITY_MOUSE_MODE	0x29
+#define STEAM_REG_LEFT_DPAD_REQUIRES_CLICK	0x2a
+#define STEAM_REG_RIGHT_DPAD_REQUIRES_CLICK	0x2b
+#define STEAM_REG_LED_BASELINE_BRIGHTNESS	0x2c
+#define STEAM_REG_LED_USER_BRIGHTNESS		0x2d
+#define STEAM_REG_ENABLE_RAW_JOYSTICK		0x2e
+#define STEAM_REG_ENABLE_FAST_SCAN		0x2f
+#define STEAM_REG_GYRO_MODE			0x30
+#define STEAM_REG_WIRELESS_PACKET_VERSION	0x31
+#define STEAM_REG_SLEEP_INACTIVITY_TIMEOUT	0x32
+#define STEAM_REG_LEFT_TRACKPAD_CLICK_PRESSURE	0x34
+#define STEAM_REG_RIGHT_TRACKPAD_CLICK_PRESSURE	0x35
 
 /* Raw event identifiers */
 #define STEAM_EV_INPUT_DATA		0x01
@@ -108,23 +179,43 @@ static LIST_HEAD(steam_devices);
 #define STEAM_EV_BATTERY		0x04
 #define STEAM_EV_DECK_INPUT_DATA	0x09
 
+/* String attribute idenitifiers */
+#define STEAM_ATTRIB_STR_BOARD_SERIAL	0x00
+#define STEAM_ATTRIB_STR_UNIT_SERIAL	0x01
+
 /* Values for GYRO_MODE (bitmask) */
-#define STEAM_GYRO_MODE_OFF		0x0000
-#define STEAM_GYRO_MODE_STEERING	0x0001
-#define STEAM_GYRO_MODE_TILT		0x0002
-#define STEAM_GYRO_MODE_SEND_ORIENTATION	0x0004
-#define STEAM_GYRO_MODE_SEND_RAW_ACCEL		0x0008
-#define STEAM_GYRO_MODE_SEND_RAW_GYRO		0x0010
+#define STEAM_GYRO_MODE_OFF		0
+#define STEAM_GYRO_MODE_STEERING	BIT(0)
+#define STEAM_GYRO_MODE_TILT		BIT(1)
+#define STEAM_GYRO_MODE_SEND_ORIENTATION	BIT(2)
+#define STEAM_GYRO_MODE_SEND_RAW_ACCEL		BIT(3)
+#define STEAM_GYRO_MODE_SEND_RAW_GYRO		BIT(4)
+
+/* Trackpad modes */
+#define STEAM_TRACKPAD_ABSOLUTE_MOUSE		0x00
+#define STEAM_TRACKPAD_RELATIVE_MOUSE		0x01
+#define STEAM_TRACKPAD_DPAD_FOUR_WAY_DISCRETE	0x02
+#define STEAM_TRACKPAD_DPAD_FOUR_WAY_OVERLAP	0x03
+#define STEAM_TRACKPAD_DPAD_EIGHT_WAY		0x04
+#define STEAM_TRACKPAD_RADIAL_MODE		0x05
+#define STEAM_TRACKPAD_ABSOLUTE_DPAD		0x06
+#define STEAM_TRACKPAD_NONE			0x07
+#define STEAM_TRACKPAD_GESTURE_KEYBOARD		0x08
+
+/* Pad identifiers for the deck */
+#define STEAM_PAD_LEFT 0
+#define STEAM_PAD_RIGHT 1
+#define STEAM_PAD_BOTH 2
 
 /* Other random constants */
-#define STEAM_SERIAL_LEN 10
+#define STEAM_SERIAL_LEN 0x15
 
 struct steam_device {
 	struct list_head list;
 	spinlock_t lock;
 	struct hid_device *hdev, *client_hdev;
-	struct mutex mutex;
-	bool client_opened;
+	struct mutex report_mutex;
+	unsigned long client_opened;
 	struct input_dev __rcu *input;
 	unsigned long quirks;
 	struct work_struct work_connect;
@@ -135,6 +226,9 @@ struct steam_device {
 	u8 battery_charge;
 	u16 voltage;
 	struct delayed_work heartbeat;
+	struct delayed_work mode_switch;
+	bool did_mode_switch;
+	bool gamepad_mode;
 	struct work_struct rumble_work;
 	u16 rumble_left;
 	u16 rumble_right;
@@ -232,7 +326,7 @@ static int steam_write_registers(struct steam_device *steam,
 	/* Send: 0x87 len (reg valLo valHi)* */
 	u8 reg;
 	u16 val;
-	u8 cmd[64] = {STEAM_CMD_WRITE_REGISTER, 0x00};
+	u8 cmd[64] = {STEAM_CMD_SET_REGISTER, 0x00};
 	int ret;
 	va_list args;
 
@@ -265,23 +359,28 @@ static int steam_get_serial(struct steam_device *steam)
 {
 	/*
 	 * Send: 0xae 0x15 0x01
-	 * Recv: 0xae 0x15 0x01 serialnumber (10 chars)
+	 * Recv: 0xae 0x15 0x01 serialnumber
 	 */
-	int ret;
-	u8 cmd[] = {STEAM_CMD_GET_SERIAL, 0x15, 0x01};
+	int ret = 0;
+	u8 cmd[] = {STEAM_CMD_GET_STRING_ATTRIB, sizeof(steam->serial_no), STEAM_ATTRIB_STR_UNIT_SERIAL};
 	u8 reply[3 + STEAM_SERIAL_LEN + 1];
 
+	mutex_lock(&steam->report_mutex);
 	ret = steam_send_report(steam, cmd, sizeof(cmd));
 	if (ret < 0)
-		return ret;
+		goto out;
 	ret = steam_recv_report(steam, reply, sizeof(reply));
 	if (ret < 0)
-		return ret;
-	if (reply[0] != 0xae || reply[1] != 0x15 || reply[2] != 0x01)
-		return -EIO;
+		goto out;
+	if (reply[0] != 0xae || reply[1] < 1 || reply[1] > sizeof(steam->serial_no) || reply[2] != STEAM_ATTRIB_STR_UNIT_SERIAL) {
+		ret = -EIO;
+		goto out;
+	}
 	reply[3 + STEAM_SERIAL_LEN] = 0;
-	strscpy(steam->serial_no, reply + 3, sizeof(steam->serial_no));
-	return 0;
+	strscpy(steam->serial_no, reply + 3, reply[1]);
+out:
+	mutex_unlock(&steam->report_mutex);
+	return ret;
 }
 
 /*
@@ -291,13 +390,49 @@ static int steam_get_serial(struct steam_device *steam)
  */
 static inline int steam_request_conn_status(struct steam_device *steam)
 {
-	return steam_send_report_byte(steam, STEAM_CMD_REQUEST_COMM_STATUS);
+	int ret;
+	mutex_lock(&steam->report_mutex);
+	ret = steam_send_report_byte(steam, STEAM_CMD_DONGLE_GET_STATE);
+	mutex_unlock(&steam->report_mutex);
+	return ret;
+}
+
+/*
+ * Send a haptic pulse to the trackpads
+ * Duration and interval are measured in microseconds, count is the number
+ * of pulses to send for duration time with interval microseconds between them
+ * and gain is measured in decibels, ranging from -24 to +6
+ */
+static inline int steam_haptic_pulse(struct steam_device *steam, u8 pad,
+				u16 duration, u16 interval, u16 count, u8 gain)
+{
+	int ret;
+	u8 report[10] = {STEAM_CMD_HAPTIC_PULSE, 8};
+
+	/* Left and right are swapped on this report for legacy reasons */
+	if (pad < STEAM_PAD_BOTH)
+		pad ^= 1;
+
+	report[2] = pad;
+	report[3] = duration & 0xFF;
+	report[4] = duration >> 8;
+	report[5] = interval & 0xFF;
+	report[6] = interval >> 8;
+	report[7] = count & 0xFF;
+	report[8] = count >> 8;
+	report[9] = gain;
+
+	mutex_lock(&steam->report_mutex);
+	ret = steam_send_report(steam, report, sizeof(report));
+	mutex_unlock(&steam->report_mutex);
+	return ret;
 }
 
 static inline int steam_haptic_rumble(struct steam_device *steam,
 				u16 intensity, u16 left_speed, u16 right_speed,
 				u8 left_gain, u8 right_gain)
 {
+	int ret;
 	u8 report[11] = {STEAM_CMD_HAPTIC_RUMBLE, 9};
 
 	report[3] = intensity & 0xFF;
@@ -309,7 +444,10 @@ static inline int steam_haptic_rumble(struct steam_device *steam,
 	report[9] = left_gain;
 	report[10] = right_gain;
 
-	return steam_send_report(steam, report, sizeof(report));
+	mutex_lock(&steam->report_mutex);
+	ret = steam_send_report(steam, report, sizeof(report));
+	mutex_unlock(&steam->report_mutex);
+	return ret;
 }
 
 static void steam_haptic_rumble_cb(struct work_struct *work)
@@ -335,40 +473,47 @@ static int steam_play_effect(struct input_dev *dev, void *data,
 
 static void steam_set_lizard_mode(struct steam_device *steam, bool enable)
 {
+	if (steam->gamepad_mode)
+		enable = false;
+
 	if (enable) {
+		mutex_lock(&steam->report_mutex);
 		/* enable esc, enter, cursors */
 		steam_send_report_byte(steam, STEAM_CMD_DEFAULT_MAPPINGS);
 		/* enable mouse */
-		steam_send_report_byte(steam, STEAM_CMD_DEFAULT_MOUSE);
+		steam_send_report_byte(steam, STEAM_CMD_DEFAULT_REGISTER);
 		steam_write_registers(steam,
-			STEAM_REG_RPAD_MARGIN, 0x01, /* enable margin */
+			STEAM_REG_SMOOTH_ABSOLUTE_MOUSE, 0x01, /* enable smooth */
 			0);
+		mutex_unlock(&steam->report_mutex);
 
 		cancel_delayed_work_sync(&steam->heartbeat);
 	} else {
+		mutex_lock(&steam->report_mutex);
 		/* disable esc, enter, cursor */
 		steam_send_report_byte(steam, STEAM_CMD_CLEAR_MAPPINGS);
 
 		if (steam->quirks & STEAM_QUIRK_DECK) {
 			steam_write_registers(steam,
-				STEAM_REG_RPAD_MARGIN, 0x00, /* disable margin */
-				STEAM_REG_LPAD_MODE, 0x07, /* disable mouse */
-				STEAM_REG_RPAD_MODE, 0x07, /* disable mouse */
-				STEAM_REG_LPAD_CLICK_PRESSURE, 0xFFFF, /* disable clicky pad */
-				STEAM_REG_RPAD_CLICK_PRESSURE, 0xFFFF, /* disable clicky pad */
+				STEAM_REG_SMOOTH_ABSOLUTE_MOUSE, 0x00, /* disable smooth */
+				STEAM_REG_LEFT_TRACKPAD_MODE, STEAM_TRACKPAD_NONE, /* disable mouse */
+				STEAM_REG_RIGHT_TRACKPAD_MODE, STEAM_TRACKPAD_NONE, /* disable mouse */
+				STEAM_REG_LEFT_TRACKPAD_CLICK_PRESSURE, 0xFFFF, /* disable clicky pad */
+				STEAM_REG_RIGHT_TRACKPAD_CLICK_PRESSURE, 0xFFFF, /* disable clicky pad */
 				0);
+			mutex_unlock(&steam->report_mutex);
 			/*
 			 * The Steam Deck has a watchdog that automatically enables
 			 * lizard mode if it doesn't see any traffic for too long
 			 */
-			if (!work_busy(&steam->heartbeat.work))
-				schedule_delayed_work(&steam->heartbeat, 5 * HZ);
+			schedule_delayed_work(&steam->heartbeat, 5 * HZ);
 		} else {
 			steam_write_registers(steam,
-				STEAM_REG_RPAD_MARGIN, 0x00, /* disable margin */
-				STEAM_REG_LPAD_MODE, 0x07, /* disable mouse */
-				STEAM_REG_RPAD_MODE, 0x07, /* disable mouse */
+				STEAM_REG_SMOOTH_ABSOLUTE_MOUSE, 0x00, /* disable smooth */
+				STEAM_REG_LEFT_TRACKPAD_MODE, STEAM_TRACKPAD_NONE, /* disable mouse */
+				STEAM_REG_RIGHT_TRACKPAD_MODE, STEAM_TRACKPAD_NONE, /* disable mouse */
 				0);
+			mutex_unlock(&steam->report_mutex);
 		}
 	}
 }
@@ -376,22 +521,29 @@ static void steam_set_lizard_mode(struct steam_device *steam, bool enable)
 static int steam_input_open(struct input_dev *dev)
 {
 	struct steam_device *steam = input_get_drvdata(dev);
+	unsigned long flags;
+	bool set_lizard_mode;
 
-	mutex_lock(&steam->mutex);
-	if (!steam->client_opened && lizard_mode)
+	spin_lock_irqsave(&steam->lock, flags);
+	set_lizard_mode = !steam->client_opened && lizard_mode;
+	spin_unlock_irqrestore(&steam->lock, flags);
+	if (set_lizard_mode)
 		steam_set_lizard_mode(steam, false);
-	mutex_unlock(&steam->mutex);
+
 	return 0;
 }
 
 static void steam_input_close(struct input_dev *dev)
 {
 	struct steam_device *steam = input_get_drvdata(dev);
+	unsigned long flags;
+	bool set_lizard_mode;
 
-	mutex_lock(&steam->mutex);
-	if (!steam->client_opened && lizard_mode)
+	spin_lock_irqsave(&steam->lock, flags);
+	set_lizard_mode = !steam->client_opened && lizard_mode;
+	spin_unlock_irqrestore(&steam->lock, flags);
+	if (set_lizard_mode)
 		steam_set_lizard_mode(steam, true);
-	mutex_unlock(&steam->mutex);
 }
 
 static enum power_supply_property steam_battery_props[] = {
@@ -635,7 +787,8 @@ static void steam_battery_unregister(struct steam_device *steam)
 static int steam_register(struct steam_device *steam)
 {
 	int ret;
-	bool client_opened;
+	unsigned long client_opened;
+	unsigned long flags;
 
 	/*
 	 * This function can be called several times in a row with the
@@ -648,11 +801,9 @@ static int steam_register(struct steam_device *steam)
 		 * Unlikely, but getting the serial could fail, and it is not so
 		 * important, so make up a serial number and go on.
 		 */
-		mutex_lock(&steam->mutex);
 		if (steam_get_serial(steam) < 0)
 			strscpy(steam->serial_no, "XXXXXXXXXX",
 					sizeof(steam->serial_no));
-		mutex_unlock(&steam->mutex);
 
 		hid_info(steam->hdev, "Steam Controller '%s' connected",
 				steam->serial_no);
@@ -667,11 +818,11 @@ static int steam_register(struct steam_device *steam)
 		mutex_unlock(&steam_devices_lock);
 	}
 
-	mutex_lock(&steam->mutex);
+	spin_lock_irqsave(&steam->lock, flags);
 	client_opened = steam->client_opened;
+	spin_unlock_irqrestore(&steam->lock, flags);
 	if (!client_opened)
 		steam_set_lizard_mode(steam, lizard_mode);
-	mutex_unlock(&steam->mutex);
 
 	if (!client_opened)
 		ret = steam_input_register(steam);
@@ -719,6 +870,34 @@ static void steam_work_connect_cb(struct work_struct *work)
 	}
 }
 
+static void steam_mode_switch_cb(struct work_struct *work)
+{
+	struct steam_device *steam = container_of(to_delayed_work(work),
+							struct steam_device, mode_switch);
+	unsigned long flags;
+	bool client_opened;
+	steam->gamepad_mode = !steam->gamepad_mode;
+	if (!lizard_mode)
+		return;
+
+	if (steam->gamepad_mode)
+		steam_set_lizard_mode(steam, false);
+	else {
+		spin_lock_irqsave(&steam->lock, flags);
+		client_opened = steam->client_opened;
+		spin_unlock_irqrestore(&steam->lock, flags);
+		if (!client_opened)
+			steam_set_lizard_mode(steam, lizard_mode);
+	}
+
+	steam_haptic_pulse(steam, STEAM_PAD_RIGHT, 0x190, 0, 1, 0);
+	if (steam->gamepad_mode) {
+		steam_haptic_pulse(steam, STEAM_PAD_LEFT, 0x14D, 0x14D, 0x2D, 0);
+	} else {
+		steam_haptic_pulse(steam, STEAM_PAD_LEFT, 0x1F4, 0x1F4, 0x1E, 0);
+	}
+}
+
 static bool steam_is_valve_interface(struct hid_device *hdev)
 {
 	struct hid_report_enum *rep_enum;
@@ -742,16 +921,21 @@ static void steam_lizard_mode_heartbeat(struct work_struct *work)
 {
 	struct steam_device *steam = container_of(work, struct steam_device,
 							heartbeat.work);
+	bool client_opened;
+	unsigned long flags;
 
-	mutex_lock(&steam->mutex);
-	if (!steam->client_opened && steam->client_hdev) {
+	spin_lock_irqsave(&steam->lock, flags);
+	client_opened = steam->client_opened;
+	spin_unlock_irqrestore(&steam->lock, flags);
+	if (!client_opened) {
+		mutex_lock(&steam->report_mutex);
 		steam_send_report_byte(steam, STEAM_CMD_CLEAR_MAPPINGS);
 		steam_write_registers(steam,
-			STEAM_REG_RPAD_MODE, 0x07, /* disable mouse */
+			STEAM_REG_RIGHT_TRACKPAD_MODE, STEAM_TRACKPAD_NONE, /* disable mouse */
 			0);
+		mutex_unlock(&steam->report_mutex);
 		schedule_delayed_work(&steam->heartbeat, 5 * HZ);
 	}
-	mutex_unlock(&steam->mutex);
 }
 
 static int steam_client_ll_parse(struct hid_device *hdev)
@@ -774,10 +958,11 @@ static void steam_client_ll_stop(struct hid_device *hdev)
 static int steam_client_ll_open(struct hid_device *hdev)
 {
 	struct steam_device *steam = hdev->driver_data;
+	unsigned long flags;
 
-	mutex_lock(&steam->mutex);
-	steam->client_opened = true;
-	mutex_unlock(&steam->mutex);
+	spin_lock_irqsave(&steam->lock, flags);
+	steam->client_opened++;
+	spin_unlock_irqrestore(&steam->lock, flags);
 
 	steam_input_unregister(steam);
 
@@ -792,14 +977,12 @@ static void steam_client_ll_close(struct hid_device *hdev)
 	bool connected;
 
 	spin_lock_irqsave(&steam->lock, flags);
-	connected = steam->connected;
+	steam->client_opened--;
+	connected = steam->connected && !steam->client_opened;
 	spin_unlock_irqrestore(&steam->lock, flags);
 
-	mutex_lock(&steam->mutex);
-	steam->client_opened = false;
 	if (connected)
 		steam_set_lizard_mode(steam, lizard_mode);
-	mutex_unlock(&steam->mutex);
 
 	if (connected)
 		steam_input_register(steam);
@@ -888,19 +1071,13 @@ static int steam_probe(struct hid_device *hdev,
 	steam->hdev = hdev;
 	hid_set_drvdata(hdev, steam);
 	spin_lock_init(&steam->lock);
-	mutex_init(&steam->mutex);
+	mutex_init(&steam->report_mutex);
 	steam->quirks = id->driver_data;
 	INIT_WORK(&steam->work_connect, steam_work_connect_cb);
+	INIT_DELAYED_WORK(&steam->mode_switch, steam_mode_switch_cb);
 	INIT_LIST_HEAD(&steam->list);
 	INIT_DEFERRABLE_WORK(&steam->heartbeat, steam_lizard_mode_heartbeat);
 	INIT_WORK(&steam->rumble_work, steam_haptic_rumble_cb);
-
-	steam->client_hdev = steam_create_client_hid(hdev);
-	if (IS_ERR(steam->client_hdev)) {
-		ret = PTR_ERR(steam->client_hdev);
-		goto client_hdev_fail;
-	}
-	steam->client_hdev->driver_data = steam;
 
 	/*
 	 * With the real steam controller interface, do not connect hidraw.
@@ -909,10 +1086,6 @@ static int steam_probe(struct hid_device *hdev,
 	ret = hid_hw_start(hdev, HID_CONNECT_DEFAULT & ~HID_CONNECT_HIDRAW);
 	if (ret)
 		goto hid_hw_start_fail;
-
-	ret = hid_add_device(steam->client_hdev);
-	if (ret)
-		goto client_hdev_add_fail;
 
 	ret = hid_hw_open(hdev);
 	if (ret) {
@@ -939,17 +1112,29 @@ static int steam_probe(struct hid_device *hdev,
 		}
 	}
 
+	steam->client_hdev = steam_create_client_hid(hdev);
+	if (IS_ERR(steam->client_hdev)) {
+		ret = PTR_ERR(steam->client_hdev);
+		goto client_hdev_fail;
+	}
+	steam->client_hdev->driver_data = steam;
+
+	ret = hid_add_device(steam->client_hdev);
+	if (ret)
+		goto client_hdev_add_fail;
+
 	return 0;
 
-input_register_fail:
-hid_hw_open_fail:
 client_hdev_add_fail:
 	hid_hw_stop(hdev);
-hid_hw_start_fail:
-	hid_destroy_device(steam->client_hdev);
 client_hdev_fail:
+	hid_destroy_device(steam->client_hdev);
+input_register_fail:
+hid_hw_open_fail:
+hid_hw_start_fail:
 	cancel_work_sync(&steam->work_connect);
 	cancel_delayed_work_sync(&steam->heartbeat);
+	cancel_delayed_work_sync(&steam->mode_switch);
 	cancel_work_sync(&steam->rumble_work);
 steam_alloc_fail:
 	hid_err(hdev, "%s: failed with error %d\n",
@@ -966,13 +1151,12 @@ static void steam_remove(struct hid_device *hdev)
 		return;
 	}
 
-	hid_destroy_device(steam->client_hdev);
-	mutex_lock(&steam->mutex);
-	steam->client_hdev = NULL;
-	steam->client_opened = false;
 	cancel_delayed_work_sync(&steam->heartbeat);
-	mutex_unlock(&steam->mutex);
+	cancel_delayed_work_sync(&steam->mode_switch);
 	cancel_work_sync(&steam->work_connect);
+	hid_destroy_device(steam->client_hdev);
+	steam->client_hdev = NULL;
+	steam->client_opened = 0;
 	if (steam->quirks & STEAM_QUIRK_WIRELESS) {
 		hid_info(hdev, "Steam wireless receiver disconnected");
 	}
@@ -1307,6 +1491,14 @@ static void steam_do_deck_input_event(struct steam_device *steam,
 	input_event(input, EV_KEY, BTN_BASE, !!(b14 & BIT(2)));
 
 	input_sync(input);
+
+	if (!(b9 & BIT(6)) && steam->did_mode_switch) {
+		steam->did_mode_switch = false;
+		cancel_delayed_work_sync(&steam->mode_switch);
+	} else if (!steam->client_opened && (b9 & BIT(6)) && !steam->did_mode_switch) {
+		steam->did_mode_switch = true;
+		schedule_delayed_work(&steam->mode_switch, 45 * HZ / 100);
+	}
 }
 
 /*
@@ -1439,10 +1631,8 @@ static int steam_param_set_lizard_mode(const char *val,
 
 	mutex_lock(&steam_devices_lock);
 	list_for_each_entry(steam, &steam_devices, list) {
-		mutex_lock(&steam->mutex);
 		if (!steam->client_opened)
 			steam_set_lizard_mode(steam, lizard_mode);
-		mutex_unlock(&steam->mutex);
 	}
 	mutex_unlock(&steam_devices_lock);
 	return 0;

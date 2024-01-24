@@ -514,6 +514,19 @@ static int usb_unbind_interface(struct device *dev)
 	return 0;
 }
 
+static void usb_shutdown_interface(struct device *dev)
+{
+	struct usb_interface *intf = to_usb_interface(dev);
+	struct usb_driver *driver;
+
+	if (!dev->driver)
+		return;
+
+	driver = to_usb_driver(dev->driver);
+	if (driver->shutdown)
+		driver->shutdown(intf);
+}
+
 /**
  * usb_driver_claim_interface - bind a driver to an interface
  * @driver: the driver to be bound
@@ -1053,6 +1066,7 @@ int usb_register_driver(struct usb_driver *new_driver, struct module *owner,
 	new_driver->drvwrap.driver.bus = &usb_bus_type;
 	new_driver->drvwrap.driver.probe = usb_probe_interface;
 	new_driver->drvwrap.driver.remove = usb_unbind_interface;
+	new_driver->drvwrap.driver.shutdown = usb_shutdown_interface;
 	new_driver->drvwrap.driver.owner = owner;
 	new_driver->drvwrap.driver.mod_name = mod_name;
 	new_driver->drvwrap.driver.dev_groups = new_driver->dev_groups;

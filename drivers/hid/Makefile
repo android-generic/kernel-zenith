@@ -23,12 +23,17 @@ hid-logitech-$(CONFIG_LOGIWHEELS_FF)	+= hid-lg4ff.o
 hid-wiimote-y		:= hid-wiimote-core.o hid-wiimote-modules.o
 hid-wiimote-$(CONFIG_DEBUG_FS)	+= hid-wiimote-debug.o
 
+hid-asus-y		:= hid-asus-core.o hid-asus-rog.o
+
 obj-$(CONFIG_HID_A4TECH)	+= hid-a4tech.o
 obj-$(CONFIG_HID_ACCUTOUCH)	+= hid-accutouch.o
 obj-$(CONFIG_HID_ALPS)		+= hid-alps.o
 obj-$(CONFIG_HID_ACRUX)		+= hid-axff.o
 obj-$(CONFIG_HID_APPLE)		+= hid-apple.o
 obj-$(CONFIG_HID_APPLEIR)	+= hid-appleir.o
+obj-$(CONFIG_HID_APPLETB_BL)	+= hid-appletb-bl.o
+obj-$(CONFIG_HID_APPLETB_KBD)	+= hid-appletb-kbd.o
+obj-$(CONFIG_HID_APPLE_MAGIC_BACKLIGHT)	+= hid-apple-magic-backlight.o
 obj-$(CONFIG_HID_CREATIVE_SB0540)	+= hid-creative-sb0540.o
 obj-$(CONFIG_HID_ASUS)		+= hid-asus.o
 obj-$(CONFIG_HID_AUREAL)	+= hid-aureal.o

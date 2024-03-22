@@ -50,6 +50,10 @@ enum oxp_board {
 	aya_neo_geek,
 	aya_neo_geek_1s,
 	aya_neo_kun,
+	gpd_win_3,
+	gpd_win_4,
+	gpd_win_max_2,
+	gpd_win_mini,
 	orange_pi_neo,
 	oxp_2,
 	oxp_fly,
@@ -69,8 +73,18 @@ static enum oxp_board board;
 #define ORANGEPI_SENSOR_PWM_ENABLE_REG  0x40 /* PWM enable is 1 register long */
 #define ORANGEPI_SENSOR_PWM_REG         0x38 /* PWM reading is 1 register long */
 
+/* GPD Win Mini doesn't have a separate enable register for the
+ * fan. For the PWM register, 0 is auto, 1-244 is a manual value, and
+ * 245-255 are undefined. This driver will scale to 0-255, and treat
+ * PWM enable without a value as "set to manual, 70%." It uses the same fan
+ * register as the OrangePi NEO.
+ */
+#define GPD_SENSOR_PWM_REG              0x7A /* PWM reading is 1 register long */
+
 #define PWM_MODE_AUTO                   0x00 /* Value for fan auto mode */
 #define PWM_MODE_MANUAL                 0x01 /* Value for fan auto mode */
+#define GPD_PWM_MODE_MANUAL             0xAA /* Value for fan manual mode -- 70% */
+
 /* Turbo button takeover function
  * Different boards have different values and EC registers
  * for the same function
@@ -160,6 +174,34 @@ static const struct dmi_system_id dmi_table[] = {
 			DMI_EXACT_MATCH(DMI_BOARD_NAME, "KUN"),
 		},
 		.driver_data = (void *)aya_neo_kun,
+	},
+	{
+		.matches = {
+			DMI_MATCH(DMI_BOARD_VENDOR, "GPD"),
+			DMI_EXACT_MATCH(DMI_BOARD_NAME, "G1618-03"),
+		},
+		.driver_data = (void *)gpd_win_3,
+	},
+	{
+		.matches = {
+			DMI_MATCH(DMI_BOARD_VENDOR, "GPD"),
+			DMI_EXACT_MATCH(DMI_BOARD_NAME, "G1618-04"),
+		},
+		.driver_data = (void *)gpd_win_4,
+	},
+	{
+		.matches = {
+			DMI_MATCH(DMI_BOARD_VENDOR, "GPD"),
+			DMI_EXACT_MATCH(DMI_BOARD_NAME, "G1619-04"),
+		},
+		.driver_data = (void *)gpd_win_max_2,
+	},
+	{
+		.matches = {
+			DMI_MATCH(DMI_BOARD_VENDOR, "GPD"),
+			DMI_EXACT_MATCH(DMI_BOARD_NAME, "G1617-01"),
+		},
+		.driver_data = (void *)gpd_win_mini,
 	},
 	{
 		.matches = {
@@ -388,6 +430,14 @@ static DEVICE_ATTR_RW(tt_toggle);
 static int oxp_pwm_enable(void)
 {
 	switch (board) {
+	case gpd_win_3:
+	case gpd_win_4:
+	case gpd_win_max_2:
+	case gpd_win_mini:
+		/* GPD has no separate enable register, instead, set the fan to
+		 * a safe default.
+		 */
+		return write_to_ec(GPD_SENSOR_PWM_REG, GPD_PWM_MODE_MANUAL);
 	case orange_pi_neo:
 		return write_to_ec(ORANGEPI_SENSOR_PWM_ENABLE_REG, PWM_MODE_MANUAL);
 	case aok_zoe_a1:
@@ -414,6 +464,11 @@ static int oxp_pwm_enable(void)
 static int oxp_pwm_disable(void)
 {
 	switch (board) {
+	case gpd_win_3:
+	case gpd_win_4:
+	case gpd_win_max_2:
+	case gpd_win_mini:
+		return write_to_ec(GPD_SENSOR_PWM_REG, PWM_MODE_AUTO);
 	case orange_pi_neo:
 		return write_to_ec(ORANGEPI_SENSOR_PWM_ENABLE_REG, PWM_MODE_AUTO);
 	case aok_zoe_a1:
@@ -461,6 +516,10 @@ static int oxp_platform_read(struct device *dev, enum hwmon_sensor_types type,
 		switch (attr) {
 		case hwmon_fan_input:
 			switch (board) {
+			case gpd_win_3:
+			case gpd_win_4:
+			case gpd_win_max_2:
+			case gpd_win_mini:
 			case orange_pi_neo:
 				return read_from_ec(ORANGEPI_SENSOR_FAN_REG, 2, val);
 			case aok_zoe_a1:
@@ -491,6 +550,16 @@ static int oxp_platform_read(struct device *dev, enum hwmon_sensor_types type,
 		switch (attr) {
 		case hwmon_pwm_input:
 			switch (board) {
+			case gpd_win_3:
+			case gpd_win_4:
+			case gpd_win_max_2:
+			case gpd_win_mini:
+				ret = read_from_ec(GPD_SENSOR_PWM_REG, 1, val);
+				if (ret)
+					return ret;
+				if (*val != PWM_MODE_AUTO)
+					*val = ((*val - 1) * 255) / 243;
+				break;
 			case orange_pi_neo:
 				ret = read_from_ec(ORANGEPI_SENSOR_PWM_REG, 1, val);
 				if (ret)
@@ -525,6 +594,13 @@ static int oxp_platform_read(struct device *dev, enum hwmon_sensor_types type,
 			return 0;
 		case hwmon_pwm_enable:
 			switch (board) {
+			case gpd_win_3:
+			case gpd_win_4:
+			case gpd_win_max_2:
+			case gpd_win_mini:
+				ret = read_from_ec(GPD_SENSOR_PWM_REG, 1, val);
+				*val = (*val != PWM_MODE_AUTO);
+				return ret;
 			case orange_pi_neo:
 				return read_from_ec(ORANGEPI_SENSOR_PWM_ENABLE_REG, 1, val);
 			case aok_zoe_a1:
@@ -573,6 +649,12 @@ static int oxp_platform_write(struct device *dev, enum hwmon_sensor_types type,
 			if (val < 0 || val > 255)
 				return -EINVAL;
 			switch (board) {
+			case gpd_win_3:
+			case gpd_win_4:
+			case gpd_win_max_2:
+			case gpd_win_mini:
+				val = (val * 243) / 255 + 1;
+				return write_to_ec(GPD_SENSOR_PWM_REG, val);
 			case orange_pi_neo:
 				return write_to_ec(ORANGEPI_SENSOR_PWM_REG, val);
 			case aya_neo_2:

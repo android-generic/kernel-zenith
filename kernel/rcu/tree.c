@@ -4424,7 +4424,7 @@ static void rcu_spawn_exp_par_gp_kworker(struct rcu_node *rnp)
 	WRITE_ONCE(rnp->exp_kworker, kworker);
 
 	if (IS_ENABLED(CONFIG_RCU_EXP_KTHREAD))
-		sched_setscheduler_nocheck(kworker->task, SCHED_FIFO, &param);
+		sched_setscheduler_nocheck(kworker->task, SCHED_RR, &param);
 }
 
 static struct task_struct *rcu_exp_par_gp_task(struct rcu_node *rnp)

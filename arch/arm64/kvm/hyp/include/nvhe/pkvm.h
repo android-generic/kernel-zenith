@@ -61,10 +61,6 @@ struct pkvm_hyp_vm {
 
 	unsigned short refcount;
 
-	/*
-	 * The number of vcpus initialized and ready to run.
-	 */
-	unsigned int nr_vcpus;
 	hyp_spinlock_t vcpus_lock;
 
 	/*
@@ -89,6 +85,11 @@ static inline bool pkvm_hyp_vcpu_is_protected(struct pkvm_hyp_vcpu *hyp_vcpu)
 	return vcpu_is_protected(&hyp_vcpu->vcpu);
 }
 
+static inline bool pkvm_hyp_vm_is_protected(struct pkvm_hyp_vm *hyp_vm)
+{
+	return kvm_vm_is_protected(&hyp_vm->kvm);
+}
+
 extern phys_addr_t pvmfw_base;
 extern phys_addr_t pvmfw_size;
 
@@ -110,6 +111,7 @@ struct pkvm_hyp_vcpu *pkvm_get_loaded_hyp_vcpu(void);
 
 struct pkvm_hyp_vm *get_pkvm_hyp_vm(pkvm_handle_t handle);
 void put_pkvm_hyp_vm(struct pkvm_hyp_vm *hyp_vm);
+struct pkvm_hyp_vm *get_np_pkvm_hyp_vm(pkvm_handle_t handle);
 
 bool kvm_handle_pvm_sysreg(struct kvm_vcpu *vcpu, u64 *exit_code);
 bool kvm_handle_pvm_restricted(struct kvm_vcpu *vcpu, u64 *exit_code);
@@ -120,7 +122,6 @@ int kvm_check_pvm_sysreg_table(void);
 void pkvm_reset_vcpu(struct pkvm_hyp_vcpu *hyp_vcpu);
 
 bool kvm_handle_pvm_hvc64(struct kvm_vcpu *vcpu, u64 *exit_code);
-bool kvm_hyp_handle_hvc64(struct kvm_vcpu *vcpu, u64 *exit_code);
 
 struct pkvm_hyp_vcpu *pkvm_mpidr_to_hyp_vcpu(struct pkvm_hyp_vm *vm, u64 mpidr);
 
@@ -162,6 +163,11 @@ int pkvm_host_hvc_pd(u64 device_id, u64 on);
 int pkvm_init_scmi_pd(struct kvm_power_domain *pd,
 		      const struct kvm_power_domain_ops *ops);
 
+bool pkvm_device_request_mmio(struct pkvm_hyp_vcpu *hyp_vcpu, u64 *exit_code);
+void pkvm_devices_teardown(struct pkvm_hyp_vm *vm);
+int pkvm_devices_get_context(u64 iommu_id, u32 endpoint_id);
+void pkvm_devices_put_context(u64 iommu_id, u32 endpoint_id);
+
 /*
  * Register a power domain. When the hypervisor catches power requests from the
  * host for this power domain, it calls the power ops with @pd as argument.
@@ -180,5 +186,12 @@ static inline int pkvm_init_power_domain(struct kvm_power_domain *pd,
 		return -EOPNOTSUPP;
 	}
 }
+
+int pkvm_init_devices(void);
+int pkvm_device_hyp_assign_mmio(u64 pfn, u64 nr_pages);
+int pkvm_device_reclaim_mmio(u64 pfn, u64 nr_pages);
+int pkvm_host_map_guest_mmio(struct pkvm_hyp_vcpu *hyp_vcpu, u64 pfn, u64 gfn);
+int pkvm_device_register_reset(u64 phys, void *cookie,
+			       int (*cb)(void *cookie, bool host_to_guest));
 
 #endif /* __ARM64_KVM_NVHE_PKVM_H__ */

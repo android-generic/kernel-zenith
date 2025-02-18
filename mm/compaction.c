@@ -66,6 +66,7 @@ static inline bool is_via_compact_memory(int order) { return false; }
 #undef CREATE_TRACE_POINTS
 
 #include <trace/hooks/vmscan.h>
+#include <trace/hooks/compaction.h>
 
 #define block_start_pfn(pfn, order)	round_down(pfn, 1UL << (order))
 #define block_end_pfn(pfn, order)	ALIGN((pfn) + 1, 1UL << (order))
@@ -1417,6 +1418,8 @@ static bool suitable_migration_source(struct compact_control *cc,
 static bool suitable_migration_target(struct compact_control *cc,
 							struct page *page)
 {
+	bool bypass = false;
+
 	/* If the page is a large free page, then disallow migration */
 	if (PageBuddy(page)) {
 		int order = cc->order > 0 ? cc->order : pageblock_order;
@@ -1429,6 +1432,10 @@ static bool suitable_migration_target(struct compact_control *cc,
 		if (buddy_order_unsafe(page) >= order)
 			return false;
 	}
+
+	trace_android_vh_migration_target_bypass(page, &bypass);
+	if (bypass)
+		return false;
 
 	if (cc->ignore_block_suitable)
 		return true;
@@ -1497,6 +1504,7 @@ fast_isolate_around(struct compact_control *cc, unsigned long pfn)
 {
 	unsigned long start_pfn, end_pfn;
 	struct page *page;
+	bool bypass = false;
 
 	/* Do not search around if there are enough pages already */
 	if (cc->nr_freepages >= cc->nr_migratepages)
@@ -1512,6 +1520,10 @@ fast_isolate_around(struct compact_control *cc, unsigned long pfn)
 
 	page = pageblock_pfn_to_page(start_pfn, end_pfn, cc->zone);
 	if (!page)
+		return;
+
+	trace_android_vh_migration_target_bypass(page, &bypass);
+	if (bypass)
 		return;
 
 	isolate_freepages_block(cc, &start_pfn, end_pfn, cc->freepages, 1, false);
@@ -2274,6 +2286,7 @@ static bool should_proactive_compact_node(pg_data_t *pgdat)
 		return false;
 
 	wmark_high = fragmentation_score_wmark(false);
+	trace_android_vh_proactive_compact_wmark_high(&wmark_high);
 	return fragmentation_score_node(pgdat) > wmark_high;
 }
 

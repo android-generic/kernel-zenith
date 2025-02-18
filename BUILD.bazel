@@ -22,6 +22,7 @@ load(
     "ddk_headers",
     "ddk_headers_archive",
     "initramfs",
+    "kernel_abi",
     "kernel_build",
     "kernel_compile_commands",
     "kernel_kythe",
@@ -168,9 +169,45 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
+filegroup(
+    name = "aarch64_additional_kmi_symbol_lists",
+    srcs = [
+        # keep sorted
+        "gki/aarch64/symbols/db845c",
+        "gki/aarch64/symbols/pixel",
+        "gki/aarch64/symbols/virtual_device",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+_KUNIT_COMMON_GUIDE = [
+    "Modules for KUnit testing on Android devices only:",
+    "(KUnit: Linux Kernel Unit Testing https://www.kernel.org/doc/html/latest/dev-tools/kunit/)",
+    "(https://android.googlesource.com/kernel/common/+/refs/heads/android-mainline/tools/testing/kunit/android/README)",
+]
+
+write_file(
+    name = "generate_gki_module_info_arm64",
+    out = "generate_gki_module_info_arm64/README",
+    content = _KUNIT_COMMON_GUIDE + get_kunit_modules_list("arm64") + [
+        "",  # keep new line at the end
+    ],
+    visibility = ["//visibility:private"],
+)
+
+write_file(
+    name = "generate_gki_module_info_x86_64",
+    out = "generate_gki_module_info_x86_64/README",
+    content = _KUNIT_COMMON_GUIDE + get_kunit_modules_list("x86_64") + [
+        "",  # keep new line at the end
+    ],
+    visibility = ["//visibility:private"],
+)
+
 common_kernel(
     name = "kernel_aarch64",
     outs = DEFAULT_GKI_OUTS,
+    additional_kmi_symbol_lists = [":aarch64_additional_kmi_symbol_lists"],
     arch = "arm64",
     build_gki_artifacts = True,
     ddk_headers_archive = ":kernel_aarch64_ddk_headers_archive",
@@ -183,18 +220,16 @@ common_kernel(
     gki_boot_img_sizes = _GKI_AARCH64_BOOT_IMAGE_SIZES,
     gki_system_dlkm_modules = ":gki_system_dlkm_modules_arm64",
     kcflags = COMMON_KCFLAGS,
+    kmi_symbol_list = "gki/aarch64/symbols/base",
+    kmi_symbol_list_strict_mode = True,
     make_goals = _GKI_AARCH64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
+    protected_exports_list = "gki/aarch64/protected_exports",
+    protected_modules_list = ":gki_aarch64_protected_modules",
+    system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
+    trim_nonlisted_kmi = False,
     visibility = ["//visibility:public"],
-
-    # Symbol lists and module lists
-    # kmi_symbol_list = None,
-    # additional_kmi_symbol_lists = [],
-    # kmi_symbol_list_strict_mode = False,
-    # protected_exports_list = None,
-    # protected_modules_list = None,
-    # trim_nonlisted_kmi = False,
 
     # ABI
     # abi_definition_stg = None,
@@ -220,6 +255,7 @@ common_kernel(
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
     page_size = "16k",
+    system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
     visibility = ["//visibility:public"],
 )
 
@@ -249,6 +285,7 @@ common_kernel(
     make_goals = _GKI_AARCH64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
+    system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
     visibility = ["//visibility:public"],
 )
 
@@ -299,6 +336,7 @@ common_kernel(
     make_goals = _GKI_X86_64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("x86_64") + get_kunit_modules_list("x86_64"),
+    system_dlkm_extra_archive_files = [":generate_gki_module_info_x86_64"],
     visibility = ["//visibility:public"],
 )
 
@@ -814,7 +852,9 @@ kernel_build(
     # Enable mixed build.
     base_kernel = ":kernel_aarch64",
     build_config = "build.config.db845c",
+    collect_unstripped_modules = True,
     defconfig = "arch/arm64/configs/gki_defconfig",
+    kmi_symbol_list = "gki/aarch64/symbols/db845c",
     make_goals = [
         "modules",
         "qcom/qrb5165-rb5.dtb",
@@ -873,6 +913,11 @@ alias(
         "//build/kernel/kleaf:kgdb_is_true": "db845c_with_kgdb",
         "//conditions:default": "db845c_no_kgdb",
     }),
+)
+
+kernel_abi(
+    name = "db845c_abi",
+    kernel_build = ":db845c",
 )
 
 kernel_modules_install(
@@ -1536,6 +1581,7 @@ ddk_headers(
         "drivers/thermal/thermal_core.h",
         "drivers/thermal/thermal_debugfs.h",
         "drivers/thermal/thermal_netlink.h",
+        "drivers/thermal/thermal_thresholds.h",
         "drivers/usb/dwc3/core.h",
         "sound/usb/card.h",
         "sound/usb/usbaudio.h",

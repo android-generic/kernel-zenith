@@ -74,16 +74,19 @@ enum __kvm_host_smccc_func {
 	__KVM_HOST_SMCCC_FUNC___pkvm_init_module,
 	__KVM_HOST_SMCCC_FUNC___pkvm_register_hcall,
 	__KVM_HOST_SMCCC_FUNC___pkvm_iommu_init,
+	__KVM_HOST_SMCCC_FUNC___pkvm_devices_init,
 	__KVM_HOST_SMCCC_FUNC___pkvm_prot_finalize,
 
 	/* Hypercalls available after pKVM finalisation */
 	__KVM_HOST_SMCCC_FUNC___pkvm_host_share_hyp,
 	__KVM_HOST_SMCCC_FUNC___pkvm_host_unshare_hyp,
-	__KVM_HOST_SMCCC_FUNC___pkvm_host_map_guest,
-	__KVM_HOST_SMCCC_FUNC___pkvm_host_unmap_guest,
-	__KVM_HOST_SMCCC_FUNC___pkvm_host_relax_guest_perms,
+	__KVM_HOST_SMCCC_FUNC___pkvm_host_donate_guest,
+	__KVM_HOST_SMCCC_FUNC___pkvm_host_share_guest,
+	__KVM_HOST_SMCCC_FUNC___pkvm_host_unshare_guest,
+	__KVM_HOST_SMCCC_FUNC___pkvm_host_relax_perms_guest,
 	__KVM_HOST_SMCCC_FUNC___pkvm_host_wrprotect_guest,
-	__KVM_HOST_SMCCC_FUNC___pkvm_host_dirty_log_guest,
+	__KVM_HOST_SMCCC_FUNC___pkvm_host_test_clear_young_guest,
+	__KVM_HOST_SMCCC_FUNC___pkvm_host_mkyoung_guest,
 	__KVM_HOST_SMCCC_FUNC___kvm_adjust_pc,
 	__KVM_HOST_SMCCC_FUNC___kvm_vcpu_run,
 	__KVM_HOST_SMCCC_FUNC___kvm_timer_set_cntvoff,
@@ -105,6 +108,8 @@ enum __kvm_host_smccc_func {
 	__KVM_HOST_SMCCC_FUNC___pkvm_swap_reader_tracing,
 	__KVM_HOST_SMCCC_FUNC___pkvm_enable_event,
 	__KVM_HOST_SMCCC_FUNC___pkvm_selftest_event,
+	__KVM_HOST_SMCCC_FUNC___pkvm_sync_ftrace,
+	__KVM_HOST_SMCCC_FUNC___pkvm_disable_ftrace,
 	__KVM_HOST_SMCCC_FUNC___pkvm_tlb_flush_vmid,
 	__KVM_HOST_SMCCC_FUNC___pkvm_hyp_alloc_mgt_refill,
 	__KVM_HOST_SMCCC_FUNC___pkvm_hyp_alloc_mgt_reclaimable,
@@ -119,6 +124,9 @@ enum __kvm_host_smccc_func {
 	__KVM_HOST_SMCCC_FUNC___pkvm_host_hvc_pd,
 	__KVM_HOST_SMCCC_FUNC___pkvm_ptdump,
 	__KVM_HOST_SMCCC_FUNC___pkvm_host_iommu_map_sg,
+	__KVM_HOST_SMCCC_FUNC___pkvm_host_donate_hyp_mmio,
+	__KVM_HOST_SMCCC_FUNC___pkvm_host_reclaim_hyp_mmio,
+	__KVM_HOST_SMCCC_FUNC___pkvm_host_map_guest_mmio,
 
 	/*
 	 * Start of the dynamically registered hypercalls. Start a bit

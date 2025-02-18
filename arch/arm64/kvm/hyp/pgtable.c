@@ -1052,7 +1052,7 @@ static void stage2_map_prefault_block(struct kvm_pgtable_pte_ops *pte_ops,
 		 * presumably re-break the freshly installed block, but that
 		 * should happen very infrequently.
 		 */
-		if ((ctx->level < (KVM_PGTABLE_LAST_LEVEL - 2)) ||
+		if ((ctx->level < (KVM_PGTABLE_LAST_LEVEL - 1)) ||
 				(pa < ctx->addr) || (pa >= ctx->end)) {
 			/* We can write non-atomically: ptep isn't yet live. */
 			*ptep = pte;
@@ -1524,15 +1524,14 @@ int kvm_pgtable_stage2_wrprotect(struct kvm_pgtable *pgt, u64 addr, u64 size)
 					NULL, NULL, 0);
 }
 
-kvm_pte_t kvm_pgtable_stage2_mkyoung(struct kvm_pgtable *pgt, u64 addr)
+kvm_pte_t kvm_pgtable_stage2_mkyoung(struct kvm_pgtable *pgt, u64 addr,
+				     enum kvm_pgtable_walk_flags flags)
 {
 	kvm_pte_t pte = 0;
 	int ret;
 
 	ret = stage2_update_leaf_attrs(pgt, addr, 1, KVM_PTE_LEAF_ATTR_LO_S2_AF, 0,
-				       &pte, NULL,
-				       KVM_PGTABLE_WALK_HANDLE_FAULT |
-				       KVM_PGTABLE_WALK_SHARED);
+				       &pte, NULL, flags);
 	if (!ret)
 		dsb(ishst);
 

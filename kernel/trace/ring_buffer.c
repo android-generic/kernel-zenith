@@ -2105,7 +2105,6 @@ static struct rb_page_desc *rb_page_desc(struct trace_page_desc *trace_pdesc,
 					 int cpu)
 {
 	struct rb_page_desc *pdesc;
-	size_t len;
 	int i;
 
 	if (!trace_pdesc)
@@ -2113,15 +2112,6 @@ static struct rb_page_desc *rb_page_desc(struct trace_page_desc *trace_pdesc,
 
 	if (cpu >= trace_pdesc->nr_cpus)
 		return NULL;
-
-	pdesc = __first_rb_page_desc(trace_pdesc);
-	len = struct_size(pdesc, page_va, pdesc->nr_page_va);
-	pdesc += len * cpu;
-
-	if (pdesc->cpu == cpu)
-		return pdesc;
-
-	/* Missing CPUs, need to linear search */
 
 	for_each_rb_page_desc(pdesc, i, trace_pdesc) {
 		if (pdesc->cpu == cpu)
@@ -5261,8 +5251,11 @@ __rb_get_reader_page_from_writer(struct ring_buffer_per_cpu *cpu_buffer)
 		return NULL;
 
 	/* More to read on the reader page */
-	if (cpu_buffer->reader_page->read < rb_page_size(cpu_buffer->reader_page))
+	if (cpu_buffer->reader_page->read < rb_page_size(cpu_buffer->reader_page)) {
+		if (cpu_buffer->reader_page->read == 0)
+			cpu_buffer->read_stamp = cpu_buffer->reader_page->page->time_stamp;
 		return cpu_buffer->reader_page;
+	}
 
 	prev_reader = cpu_buffer->meta_page->reader.id;
 
@@ -5275,11 +5268,15 @@ __rb_get_reader_page_from_writer(struct ring_buffer_per_cpu *cpu_buffer)
 
 	cpu_buffer->reader_page->page =
 		(void *)cpu_buffer->subbuf_ids[cpu_buffer->meta_page->reader.id];
+	cpu_buffer->reader_page->id = cpu_buffer->meta_page->reader.id;
 	cpu_buffer->reader_page->read = 0;
 	cpu_buffer->read_stamp = cpu_buffer->reader_page->page->time_stamp;
 	cpu_buffer->lost_events = cpu_buffer->meta_page->reader.lost_events;
 
 	WARN_ON(prev_reader == cpu_buffer->meta_page->reader.id);
+
+	if (!rb_page_size(cpu_buffer->reader_page))
+		return NULL;
 
 	return cpu_buffer->reader_page;
 }
@@ -6049,6 +6046,7 @@ rb_reset_cpu(struct ring_buffer_per_cpu *cpu_buffer)
 		cpu_buffer->read = 0;
 		cpu_buffer->read_bytes = 0;
 		cpu_buffer->last_overrun = 0;
+		cpu_buffer->reader_page->read = 0;
 
 		return;
 	}

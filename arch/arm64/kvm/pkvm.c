@@ -41,9 +41,8 @@
 
 DEFINE_STATIC_KEY_FALSE(kvm_protected_mode_initialized);
 
-static struct reserved_mem *pkvm_firmware_mem;
-static phys_addr_t *pvmfw_base = &kvm_nvhe_sym(pvmfw_base);
-static phys_addr_t *pvmfw_size = &kvm_nvhe_sym(pvmfw_size);
+static phys_addr_t pvmfw_base;
+static phys_addr_t pvmfw_size;
 
 static struct pkvm_moveable_reg *moveable_regs = kvm_nvhe_sym(pkvm_moveable_regs);
 static struct memblock_region *hyp_memory = kvm_nvhe_sym(hyp_memory);
@@ -699,8 +698,9 @@ device_initcall_sync(finalize_pkvm);
 
 void pkvm_host_reclaim_page(struct kvm *host_kvm, phys_addr_t ipa)
 {
-	struct kvm_pinned_page *ppage;
 	struct mm_struct *mm = current->mm;
+	struct kvm_pinned_page *ppage;
+	u16 pins;
 
 	write_lock(&host_kvm->mmu_lock);
 	ppage = kvm_pinned_pages_iter_first(&host_kvm->arch.pkvm.pinned_pages,
@@ -711,17 +711,17 @@ void pkvm_host_reclaim_page(struct kvm *host_kvm, phys_addr_t ipa)
 		else
 			WARN_ON(1);
 
-		if (!ppage->pins)
+		pins = ppage->pins;
+		if (!pins)
 			kvm_pinned_pages_remove(ppage,
 						&host_kvm->arch.pkvm.pinned_pages);
 	}
 	write_unlock(&host_kvm->mmu_lock);
 
-	WARN_ON(!ppage);
-	if (!ppage)
+	if (WARN_ON(!ppage) || pins)
 		return;
 
-	account_locked_vm(mm, 1, false);
+	account_locked_vm(mm, 1 << ppage->order, false);
 	unpin_user_pages_dirty_lock(&ppage->page, 1, true);
 	kfree(ppage);
 }
@@ -740,7 +740,7 @@ static int __init pkvm_firmware_rmem_init(struct reserved_mem *rmem)
 {
 	unsigned long node = rmem->fdt_node;
 
-	if (pkvm_firmware_mem)
+	if (pvmfw_size)
 		return pkvm_firmware_rmem_err(rmem, "duplicate reservation");
 
 	if (!of_get_flat_dt_prop(node, "no-map", NULL))
@@ -755,9 +755,8 @@ static int __init pkvm_firmware_rmem_init(struct reserved_mem *rmem)
 	if (!PAGE_ALIGNED(rmem->size))
 		return pkvm_firmware_rmem_err(rmem, "size is not page-aligned");
 
-	*pvmfw_size = rmem->size;
-	*pvmfw_base = rmem->base;
-	pkvm_firmware_mem = rmem;
+	pvmfw_size = kvm_nvhe_sym(pvmfw_size) = rmem->size;
+	pvmfw_base = kvm_nvhe_sym(pvmfw_base) = rmem->base;
 	return 0;
 }
 RESERVEDMEM_OF_DECLARE(pkvm_firmware, "linux,pkvm-guest-firmware-memory",
@@ -768,12 +767,12 @@ static int __init pkvm_firmware_rmem_clear(void)
 	void *addr;
 	phys_addr_t size;
 
-	if (likely(!pkvm_firmware_mem))
+	if (likely(!pvmfw_size))
 		return 0;
 
 	kvm_info("Clearing pKVM firmware memory\n");
-	size = pkvm_firmware_mem->size;
-	addr = memremap(pkvm_firmware_mem->base, size, MEMREMAP_WB);
+	size = pvmfw_size;
+	addr = memremap(pvmfw_base, size, MEMREMAP_WB);
 	if (!addr)
 		return -EINVAL;
 
@@ -787,7 +786,7 @@ static int pkvm_vm_ioctl_set_fw_ipa(struct kvm *kvm, u64 ipa)
 {
 	int ret = 0;
 
-	if (!pkvm_firmware_mem)
+	if (!pvmfw_size)
 		return -EINVAL;
 
 	mutex_lock(&kvm->lock);
@@ -806,9 +805,7 @@ static int pkvm_vm_ioctl_info(struct kvm *kvm,
 			      struct kvm_protected_vm_info __user *info)
 {
 	struct kvm_protected_vm_info kinfo = {
-		.firmware_size = pkvm_firmware_mem ?
-				 pkvm_firmware_mem->size :
-				 0,
+		.firmware_size = pvmfw_size,
 	};
 
 	return copy_to_user(info, &kinfo, sizeof(kinfo)) ? -EFAULT : 0;

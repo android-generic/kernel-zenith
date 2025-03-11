@@ -828,6 +828,7 @@ static int shmem_add_to_page_cache(struct folio *folio,
 			goto unlock;
 		shmem_update_stats(folio, nr);
 		mapping->nrpages += nr;
+		trace_android_vh_shmem_mod_shmem(folio->mapping, nr);
 unlock:
 		xas_unlock_irq(&xas);
 	} while (xas_nomem(&xas, gfp));
@@ -852,6 +853,7 @@ static void shmem_delete_from_page_cache(struct folio *folio, void *radswap)
 
 	xa_lock_irq(&mapping->i_pages);
 	error = shmem_replace_entry(mapping, folio->index, folio, radswap);
+	trace_android_vh_shmem_mod_shmem(folio->mapping, -nr);
 	folio->mapping = NULL;
 	mapping->nrpages -= nr;
 	shmem_update_stats(folio, -nr);
@@ -1146,6 +1148,7 @@ whole_folios:
 	}
 
 	shmem_recalc_inode(inode, 0, -nr_swaps_freed);
+	trace_android_vh_shmem_mod_swapped(mapping, -nr_swaps_freed);
 }
 
 void shmem_truncate_range(struct inode *inode, loff_t lstart, loff_t lend)
@@ -1568,6 +1571,7 @@ try_split:
 			__GFP_HIGH | __GFP_NOMEMALLOC | __GFP_NOWARN,
 			NULL) == 0) {
 		shmem_recalc_inode(inode, 0, nr_pages);
+		trace_android_vh_shmem_mod_swapped(folio->mapping, nr_pages);
 		swap_shmem_alloc(swap, nr_pages);
 		shmem_delete_from_page_cache(folio, swp_to_radix_entry(swap));
 
@@ -1637,6 +1641,7 @@ static struct folio *shmem_swapin_cluster(swp_entry_t swap, gfp_t gfp,
 	return folio;
 }
 
+#ifdef CONFIG_TRANSPARENT_HUGEPAGE
 /*
  * Make sure huge_gfp is always more limited than limit_gfp.
  * Some of the flags set permissions, while others set limitations.
@@ -1661,7 +1666,6 @@ static gfp_t limit_gfp_mask(gfp_t huge_gfp, gfp_t limit_gfp)
 	return result;
 }
 
-#ifdef CONFIG_TRANSPARENT_HUGEPAGE
 unsigned long shmem_allowable_huge_orders(struct inode *inode,
 				struct vm_area_struct *vma, pgoff_t index,
 				loff_t write_end, bool shmem_huge_force)
@@ -1776,7 +1780,7 @@ static struct folio *shmem_alloc_folio(gfp_t gfp, int order,
 	struct folio *folio = NULL;
 
 	mpol = shmem_get_pgoff_policy(info, index, order, &ilx);
-	trace_android_rvh_shmem_get_folio(info, &folio);
+	trace_android_rvh_shmem_get_folio(info, &folio, order);
 	if (folio)
 		goto done;
 	folio = folio_alloc_mpol(gfp, order, mpol, ilx, numa_node_id());
@@ -1804,6 +1808,8 @@ static struct folio *shmem_alloc_and_add_folio(struct vm_fault *vmf,
 		suitable_orders = shmem_suitable_orders(inode, vmf,
 							mapping, index, orders);
 
+		trace_android_rvh_shmem_suitable_orders(inode, index,
+							orders, &suitable_orders);
 		order = highest_order(suitable_orders);
 		while (suitable_orders) {
 			pages = 1UL << order;
@@ -2204,6 +2210,7 @@ static int shmem_swapin_folio(struct inode *inode, pgoff_t index,
 		goto failed;
 
 	shmem_recalc_inode(inode, 0, -nr_pages);
+	trace_android_vh_shmem_mod_swapped(folio->mapping, -nr_pages);
 
 	if (sgp == SGP_WRITE)
 		folio_mark_accessed(folio);
@@ -2322,6 +2329,13 @@ repeat:
 
 	/* Find hugepage orders that are allowed for anonymous shmem and tmpfs. */
 	orders = shmem_allowable_huge_orders(inode, vma, index, write_end, false);
+	trace_android_rvh_shmem_allowable_huge_orders(inode, index, vma, &orders);
+	/*
+	 * With the above hook `order` is not always 0 anymore and the following
+	 * if block does not get compiled out. With CONFIG_TRANSPARENT_HUGEPAGE=n
+	 * vma_thp_gfp_mask() becomes undefined and linker fails.
+	 */
+#ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	if (orders > 0) {
 		gfp_t huge_gfp;
 
@@ -2338,6 +2352,7 @@ repeat:
 		if (PTR_ERR(folio) == -EEXIST)
 			goto repeat;
 	}
+#endif
 
 	folio = shmem_alloc_and_add_folio(vmf, gfp, inode, index, fault_mm, 0);
 	if (IS_ERR(folio)) {
@@ -2348,7 +2363,9 @@ repeat:
 		goto unlock;
 	}
 
+#ifdef CONFIG_TRANSPARENT_HUGEPAGE
 alloced:
+#endif
 	alloced = true;
 	if (folio_test_large(folio) &&
 	    DIV_ROUND_UP(i_size_read(inode), PAGE_SIZE) <

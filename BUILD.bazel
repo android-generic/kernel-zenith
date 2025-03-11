@@ -164,6 +164,9 @@ filegroup(
             # cscope files
             "cscope.*",
             "ncscope.*",
+
+            # ABI and symbol list files
+            "gki/**",
         ],
     ),
     visibility = ["//visibility:public"],
@@ -174,6 +177,7 @@ filegroup(
     srcs = [
         # keep sorted
         "gki/aarch64/symbols/db845c",
+        "gki/aarch64/symbols/exynos",
         "gki/aarch64/symbols/exynosauto",
         "gki/aarch64/symbols/fips140",
         "gki/aarch64/symbols/galaxy",
@@ -185,6 +189,7 @@ filegroup(
         "gki/aarch64/symbols/trusty",
         "gki/aarch64/symbols/unisoc",
         "gki/aarch64/symbols/virtual_device",
+        "gki/aarch64/symbols/vivo",
         "gki/aarch64/symbols/xiaomi",
     ],
     visibility = ["//visibility:public"],

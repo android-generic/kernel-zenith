@@ -7723,7 +7723,9 @@ picked:
 			&& trace_sched_blocked_reason_enabled()) {
 			unsigned long blocked_func = 0;
 
+#ifdef CONFIG_STACKTRACE
 			stack_trace_save_tsk(prev, &blocked_func, 1, 0);
+#endif
 			trace_sched_blocked_reason(prev, (void *)blocked_func);
 		}
 
@@ -8263,7 +8265,7 @@ out_unlock:
 #if !defined(CONFIG_PREEMPTION) || defined(CONFIG_PREEMPT_DYNAMIC)
 int __sched __cond_resched(void)
 {
-	if (should_resched(0)) {
+	if (should_resched(0) && !irqs_disabled()) {
 		preempt_schedule_common();
 		return 1;
 	}

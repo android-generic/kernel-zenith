@@ -265,6 +265,11 @@ DECLARE_HOOK(android_vh_irqtime_account_process_tick,
 	TP_PROTO(struct task_struct *p, struct rq *rq, int user_tick, int ticks),
 	TP_ARGS(p, rq, user_tick, ticks));
 
+DECLARE_HOOK(android_vh_copy_process,
+	TP_PROTO(struct task_struct *p, int nr_threads),
+	TP_ARGS(p, nr_threads));
+
+
 enum uclamp_id;
 struct uclamp_se;
 DECLARE_RESTRICTED_HOOK(android_rvh_uclamp_eff_get,
@@ -380,6 +385,28 @@ DECLARE_RESTRICTED_HOOK(android_rvh_set_task_comm,
 	TP_PROTO(struct task_struct *tsk, bool exec),
 	TP_ARGS(tsk, exec), 1);
 
+DECLARE_HOOK(android_vh_task_should_scx,
+	TP_PROTO(int *should_scx, int policy, int prio),
+	TP_ARGS(should_scx, policy, prio));
+DECLARE_HOOK(android_vh_scx_ops_consider_migration,
+	TP_PROTO(bool *consider_migration),
+	TP_ARGS(consider_migration));
+DECLARE_HOOK(android_vh_scx_fix_prev_slice,
+	TP_PROTO(struct task_struct *p),
+	TP_ARGS(p));
+DECLARE_HOOK(android_vh_scx_ops_enable_state,
+	TP_PROTO(int state),
+	TP_ARGS(state));
+DECLARE_HOOK(android_vh_scx_enabled,
+	TP_PROTO(int enabled),
+	TP_ARGS(enabled));
+DECLARE_HOOK(android_vh_scx_set_cpus_allowed,
+	TP_PROTO(struct task_struct *p, struct affinity_context *ac, int *done),
+	TP_ARGS(p, ac, done));
+DECLARE_HOOK(android_vh_scx_task_switch_finish,
+	TP_PROTO(struct task_struct *p, int enable),
+	TP_ARGS(p, enable));
+
 struct sugov_policy;
 DECLARE_RESTRICTED_HOOK(android_rvh_set_sugov_update,
 	TP_PROTO(struct sugov_policy *sg_policy, unsigned int next_freq, bool *should_update),
@@ -409,10 +436,12 @@ DECLARE_HOOK(android_vh_account_task_time,
 	TP_PROTO(struct task_struct *p, struct rq *rq, int user_tick),
 	TP_ARGS(p, rq, user_tick));
 
+struct cpufreq_policy;
 DECLARE_HOOK(android_vh_map_util_freq,
 	TP_PROTO(unsigned long util, unsigned long freq,
-		unsigned long cap, unsigned long *next_freq),
-	TP_ARGS(util, freq, cap, next_freq));
+		unsigned long cap, unsigned long *next_freq, struct cpufreq_policy *policy,
+		bool *need_freq_update),
+	TP_ARGS(util, freq, cap, next_freq, policy, need_freq_update));
 
 DECLARE_RESTRICTED_HOOK(android_rvh_set_cpus_allowed_comm,
 	TP_PROTO(struct task_struct *p, const struct cpumask *new_mask),

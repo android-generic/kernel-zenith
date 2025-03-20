@@ -164,9 +164,6 @@ filegroup(
             # cscope files
             "cscope.*",
             "ncscope.*",
-
-            # ABI and symbol list files
-            "gki/**",
         ],
     ),
     visibility = ["//visibility:public"],
@@ -176,6 +173,7 @@ filegroup(
     name = "aarch64_additional_kmi_symbol_lists",
     srcs = [
         # keep sorted
+        "gki/aarch64/symbols/amlogic",
         "gki/aarch64/symbols/db845c",
         "gki/aarch64/symbols/exynos",
         "gki/aarch64/symbols/exynosauto",

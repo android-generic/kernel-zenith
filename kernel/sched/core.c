@@ -5201,6 +5201,8 @@ late_initcall(sched_core_sysctl_init);
  */
 int sched_fork(unsigned long clone_flags, struct task_struct *p)
 {
+	int should_scx = 0;
+
 	trace_android_rvh_sched_fork(p);
 
 	__sched_fork(clone_flags, p);
@@ -5247,10 +5249,11 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 
 	scx_pre_fork(p);
 
-	if (rt_prio(p->prio)) {
+	trace_android_vh_task_should_scx(&should_scx, p->policy, p->prio);
+	if (rt_prio(p->prio) && !should_scx) {
 		p->sched_class = &rt_sched_class;
 #ifdef CONFIG_SCHED_CLASS_EXT
-	} else if (task_should_scx(p->policy)) {
+	} else if (task_should_scx(p->policy) || should_scx) {
 		p->sched_class = &ext_sched_class;
 #endif
 	} else {
@@ -8067,15 +8070,26 @@ asmlinkage __visible void __sched preempt_schedule_irq(void)
 int default_wake_function(wait_queue_entry_t *curr, unsigned mode, int wake_flags,
 			  void *key)
 {
-	WARN_ON_ONCE(IS_ENABLED(CONFIG_SCHED_DEBUG) && wake_flags & ~(WF_SYNC|WF_CURRENT_CPU));
+	WARN_ON_ONCE(IS_ENABLED(CONFIG_SCHED_DEBUG) && wake_flags &
+		     ~(WF_SYNC|WF_CURRENT_CPU|WF_ANDROID_VENDOR));
 	return try_to_wake_up(curr->private, mode, wake_flags);
 }
 EXPORT_SYMBOL(default_wake_function);
 
 const struct sched_class *__setscheduler_class(int policy, int prio)
 {
+#ifdef CONFIG_SCHED_CLASS_EXT
+	int should_scx = 0;
+#endif
+
 	if (dl_prio(prio))
 		return &dl_sched_class;
+
+#ifdef CONFIG_SCHED_CLASS_EXT
+	trace_android_vh_task_should_scx(&should_scx, policy, prio);
+	if (should_scx)
+		return &ext_sched_class;
+#endif
 
 	if (rt_prio(prio))
 		return &rt_sched_class;

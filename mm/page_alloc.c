@@ -6305,6 +6305,7 @@ static void calculate_totalreserve_pages(void)
 		}
 	}
 	totalreserve_pages = reserve_pages;
+	trace_mm_calculate_totalreserve_pages(totalreserve_pages);
 }
 
 /*
@@ -6335,6 +6336,8 @@ static void setup_per_zone_lowmem_reserve(void)
 					zone->lowmem_reserve[j] = 0;
 				else
 					zone->lowmem_reserve[j] = managed_pages / ratio;
+				trace_mm_setup_per_zone_lowmem_reserve(zone, upper_zone,
+								       zone->lowmem_reserve[j]);
 			}
 		}
 	}
@@ -6398,6 +6401,7 @@ static void __setup_per_zone_wmarks(void)
 		zone->_watermark[WMARK_LOW]  = min_wmark_pages(zone) + tmp;
 		zone->_watermark[WMARK_HIGH] = low_wmark_pages(zone) + tmp;
 		zone->_watermark[WMARK_PROMO] = high_wmark_pages(zone) + tmp;
+		trace_mm_setup_per_zone_wmarks(zone);
 
 		spin_unlock_irqrestore(&zone->lock, flags);
 	}

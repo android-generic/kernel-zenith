@@ -251,7 +251,7 @@ error:
 	abort_creds(new);
 	return NULL;
 }
-EXPORT_SYMBOL_NS(prepare_creds, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(prepare_creds);
 
 /*
  * Prepare credentials for current to perform an execve()
@@ -510,7 +510,7 @@ const struct cred *override_creds(const struct cred *new)
 	       atomic_long_read(&old->usage));
 	return old;
 }
-EXPORT_SYMBOL_NS(override_creds, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(override_creds);
 
 /**
  * revert_creds - Revert a temporary subjective credentials override
@@ -530,7 +530,7 @@ void revert_creds(const struct cred *old)
 	trace_android_rvh_revert_creds(current, old);
 	put_cred(override);
 }
-EXPORT_SYMBOL_NS(revert_creds, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(revert_creds);
 
 /**
  * cred_fscmp - Compare two credentials with respect to filesystem access.

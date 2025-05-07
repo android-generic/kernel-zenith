@@ -92,7 +92,7 @@ int vfs_statfs(const struct path *path, struct kstatfs *buf)
 		buf->f_flags = calculate_f_flags(path->mnt);
 	return error;
 }
-EXPORT_SYMBOL_NS(vfs_statfs, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(vfs_statfs);
 
 int user_statfs(const char __user *pathname, struct kstatfs *st)
 {

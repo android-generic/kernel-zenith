@@ -456,6 +456,7 @@ static int swap_write_page(struct swap_map_handle *handle, void *buf,
 {
 	int error;
 	sector_t offset;
+	bool skip = false;
 
 	if (!handle->cur)
 		return -EINVAL;
@@ -469,9 +470,12 @@ static int swap_write_page(struct swap_map_handle *handle, void *buf,
 		if (!offset)
 			return -ENOSPC;
 		handle->cur->next_swap = offset;
-		error = write_page(handle->cur, handle->cur_swap, hb);
-		if (error)
-			goto out;
+		trace_android_vh_skip_swap_map_write(&skip);
+		if (!skip) {
+			error = write_page(handle->cur, handle->cur_swap, hb);
+			if (error)
+				goto out;
+		}
 		clear_page(handle->cur);
 		handle->cur_swap = offset;
 		handle->k = 0;
@@ -571,6 +575,7 @@ static int save_image(struct swap_map_handle *handle,
 		ret = snapshot_read_next(snapshot);
 		if (ret <= 0)
 			break;
+		trace_android_vh_encrypt_page(data_of(*snapshot));
 		ret = swap_write_page(handle, data_of(*snapshot), &hb);
 		if (ret)
 			break;
@@ -869,10 +874,12 @@ static int save_compressed_image(struct swap_map_handle *handle,
 			     off += PAGE_SIZE) {
 				memcpy(page, data[thr].cmp + off, PAGE_SIZE);
 
+				trace_android_vh_encrypt_page(page);
 				ret = swap_write_page(handle, page, &hb);
 				if (ret)
 					goto out_finish;
 			}
+			trace_android_vh_hibernate_save_cmp_len(data[thr].cmp_len + CMP_HEADER);
 		}
 
 		wait_event(crc->done, atomic_read_acquire(&crc->stop));
@@ -945,14 +952,26 @@ int swsusp_write(unsigned int flags)
 	struct snapshot_handle snapshot;
 	struct swsusp_info *header;
 	unsigned long pages;
-	int error;
+	int error = 0;
 
 	pages = snapshot_get_image_size();
+
+	/*
+	 * The memory allocated by this vendor hook is later freed as part of
+	 * PM_POST_HIBERNATION notifier call.
+	 */
+	trace_android_vh_hibernated_do_mem_alloc(pages, flags, &error);
+	if (error < 0) {
+		pr_err("Failed to allocate required memory\n");
+		return error;
+	}
+
 	error = get_swap_writer(&handle);
 	if (error) {
 		pr_err("Cannot get swap writer\n");
 		return error;
 	}
+	trace_android_vh_init_aes_encrypt(NULL);
 	if (flags & SF_NOCOMPRESS_MODE) {
 		if (!enough_swap(pages)) {
 			pr_err("Not enough free swap\n");
@@ -974,6 +993,8 @@ int swsusp_write(unsigned int flags)
 		error = (flags & SF_NOCOMPRESS_MODE) ?
 			save_image(&handle, &snapshot, pages - 1) :
 			save_compressed_image(&handle, &snapshot, pages - 1);
+		if (!error)
+			trace_android_vh_post_image_save(root_swap);
 	}
 out_finish:
 	error = swap_writer_finish(&handle, flags, error);

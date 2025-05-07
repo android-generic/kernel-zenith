@@ -42,6 +42,7 @@
 struct madvise_walk_private {
 	struct mmu_gather *tlb;
 	bool pageout;
+	void *private;
 };
 
 /*
@@ -352,10 +353,12 @@ static int madvise_cold_or_pageout_pte_range(pmd_t *pmd,
 	LIST_HEAD(folio_list);
 	bool pageout_anon_only_filter;
 	unsigned int batch_count = 0;
+	bool abort_madvise = false;
 	int nr;
 	int ret = 0;
 
-	if (fatal_signal_pending(current))
+	trace_android_vh_madvise_cold_or_pageout_abort(vma, &abort_madvise);
+	if (fatal_signal_pending(current) || abort_madvise)
 		return -EINTR;
 
 	trace_android_vh_madvise_pageout_bypass(mm, pageout, &ret);
@@ -432,7 +435,7 @@ static int madvise_cold_or_pageout_pte_range(pmd_t *pmd,
 huge_unlock:
 		spin_unlock(ptl);
 		if (pageout)
-			reclaim_pages(&folio_list);
+			__reclaim_pages(&folio_list, private->private);
 		return 0;
 	}
 
@@ -446,6 +449,7 @@ restart:
 	flush_tlb_batched_pending(mm);
 	arch_enter_lazy_mmu_mode();
 	for (; addr < end; pte += nr, addr += nr * PAGE_SIZE) {
+		bool need_skip = false;
 		nr = 1;
 		ptent = ptep_get(pte);
 
@@ -467,6 +471,12 @@ restart:
 
 		folio = vm_normal_folio(vma, addr, ptent);
 		if (!folio || folio_is_zone_device(folio))
+			continue;
+
+		trace_android_vh_madvise_cold_pageout_skip(vma, folio, pageout,
+			&need_skip);
+
+		if (need_skip)
 			continue;
 
 		/*
@@ -561,7 +571,7 @@ restart:
 		pte_unmap_unlock(start_pte, ptl);
 	}
 	if (pageout)
-		reclaim_pages(&folio_list);
+		__reclaim_pages(&folio_list, private->private);
 	cond_resched();
 
 	return 0;
@@ -619,10 +629,17 @@ static int madvise_pageout_page_range(struct mmu_gather *tlb,
 		.tlb = tlb,
 	};
 	int ret;
+	LIST_HEAD(folio_list);
+
+	trace_android_rvh_madvise_pageout_begin(&walk_private.private);
 
 	tlb_start_vma(tlb, vma);
 	ret = walk_page_range(vma->vm_mm, addr, end, &cold_walk_ops, &walk_private);
 	tlb_end_vma(tlb, vma);
+
+	trace_android_rvh_madvise_pageout_end(walk_private.private, &folio_list);
+	if (!list_empty(&folio_list))
+		reclaim_pages(&folio_list);
 
 	return ret;
 }

@@ -201,6 +201,12 @@ DECLARE_RESTRICTED_HOOK(android_rvh_update_misfit_status,
 	TP_PROTO(struct task_struct *p, struct rq *rq, bool *need_update),
 	TP_ARGS(p, rq, need_update), 1);
 
+struct cpuset;
+DECLARE_RESTRICTED_HOOK(android_rvh_update_cpus_allowed,
+	TP_PROTO(struct task_struct *p, struct cpuset *cs,
+		 const struct cpumask *new_mask, int *ret),
+	TP_ARGS(p, cs, new_mask, ret), 1);
+
 DECLARE_RESTRICTED_HOOK(android_rvh_sched_fork_init,
 	TP_PROTO(struct task_struct *p),
 	TP_ARGS(p), 1);
@@ -452,8 +458,8 @@ DECLARE_HOOK(android_vh_sched_setaffinity_early,
 	TP_ARGS(p, new_mask, retval));
 
 DECLARE_HOOK(android_vh_reweight_entity,
-	TP_PROTO(struct sched_entity *se),
-	TP_ARGS(se));
+	TP_PROTO(struct sched_entity *se, unsigned long *weight),
+	TP_ARGS(se, weight));
 
 struct cgroup_subsys_state;
 DECLARE_HOOK(android_vh_sched_move_task,
@@ -469,6 +475,16 @@ DECLARE_HOOK(android_vh_cpu_cgroup_css_free,
 	TP_PROTO(struct cgroup_subsys_state *css),
 	TP_ARGS(css));
 
+DECLARE_RESTRICTED_HOOK(android_rvh_dequeue_entity_delayed,
+	TP_PROTO(struct cfs_rq *cfs_rq, struct sched_entity *se, bool *delay),
+	TP_ARGS(cfs_rq, se, delay), 1);
+
+DECLARE_HOOK(android_vh_tick_nohz_idle_stop_tick,
+	TP_PROTO(void *unused),
+	TP_ARGS(unused));
+DECLARE_HOOK(android_vh_mmput,
+	TP_PROTO(struct mm_struct *mm),
+	TP_ARGS(mm));
 /* macro versions of hooks are no longer required */
 
 #endif /* _TRACE_HOOK_SCHED_H */

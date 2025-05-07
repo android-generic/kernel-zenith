@@ -106,6 +106,15 @@ DECLARE_HOOK(android_vh_sched_show_task,
 DECLARE_HOOK(android_vh_percpu_rwsem_wq_add,
 	TP_PROTO(struct percpu_rw_semaphore *sem, bool reader),
 	TP_ARGS(sem, reader));
+DECLARE_HOOK(android_vh_percpu_rwsem_down_read,
+	TP_PROTO(struct percpu_rw_semaphore *sem, bool try, bool *ret),
+	TP_ARGS(sem, try, ret));
+DECLARE_HOOK(android_vh_percpu_rwsem_up_write,
+	TP_PROTO(struct percpu_rw_semaphore *sem),
+	TP_ARGS(sem));
+DECLARE_RESTRICTED_HOOK(android_rvh_percpu_rwsem_wait_complete,
+	TP_PROTO(struct percpu_rw_semaphore *sem, long state, bool *complete),
+	TP_ARGS(sem, state, complete), 1);
 
 struct mutex_waiter;
 DECLARE_HOOK(android_vh_alter_mutex_list_add,
@@ -115,6 +124,9 @@ DECLARE_HOOK(android_vh_alter_mutex_list_add,
 		bool *already_on_list),
 	TP_ARGS(lock, waiter, list, already_on_list));
 DECLARE_HOOK(android_vh_mutex_unlock_slowpath,
+	TP_PROTO(struct mutex *lock),
+	TP_ARGS(lock));
+DECLARE_HOOK(android_vh_mutex_unlock_slowpath_before_wakeq,
 	TP_PROTO(struct mutex *lock),
 	TP_ARGS(lock));
 
@@ -130,6 +142,11 @@ DECLARE_HOOK(android_vh_record_rwsem_lock_starttime,
 DECLARE_HOOK(android_vh_record_pcpu_rwsem_starttime,
 	TP_PROTO(struct percpu_rw_semaphore *sem, unsigned long settime_jiffies),
 	TP_ARGS(sem, settime_jiffies));
+
+DECLARE_HOOK(android_vh_exit_check,
+	TP_PROTO(struct task_struct *p),
+	TP_ARGS(p));
 #endif /* _TRACE_HOOK_DTASK_H */
+
 /* This part must be outside protection */
 #include <trace/define_trace.h>

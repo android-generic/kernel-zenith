@@ -555,7 +555,7 @@ void path_get(const struct path *path)
 	mntget(path->mnt);
 	dget(path->dentry);
 }
-EXPORT_SYMBOL(path_get);
+EXPORT_SYMBOL_NS(path_get, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /**
  * path_put - put a reference to a path
@@ -2762,7 +2762,7 @@ int vfs_path_lookup(struct dentry *dentry, struct vfsmount *mnt,
 	putname(filename);
 	return ret;
 }
-EXPORT_SYMBOL(vfs_path_lookup);
+EXPORT_SYMBOL_NS(vfs_path_lookup, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 static int lookup_one_common(struct mnt_idmap *idmap,
 			     const char *name, struct dentry *base, int len,
@@ -3165,7 +3165,7 @@ struct dentry *lock_rename(struct dentry *p1, struct dentry *p2)
 	mutex_lock(&p1->d_sb->s_vfs_rename_mutex);
 	return lock_two_directories(p1, p2);
 }
-EXPORT_SYMBOL(lock_rename);
+EXPORT_SYMBOL_NS(lock_rename, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /*
  * c1 and p2 should be on the same fs.
@@ -3217,7 +3217,7 @@ void unlock_rename(struct dentry *p1, struct dentry *p2)
 		mutex_unlock(&p1->d_sb->s_vfs_rename_mutex);
 	}
 }
-EXPORT_SYMBOL(unlock_rename);
+EXPORT_SYMBOL_NS(unlock_rename, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /**
  * vfs_prepare_mode - prepare the mode to be used for a new inode
@@ -5300,10 +5300,9 @@ const char *vfs_get_link(struct dentry *dentry, struct delayed_call *done)
 EXPORT_SYMBOL(vfs_get_link);
 
 /* get the link contents into pagecache */
-const char *page_get_link(struct dentry *dentry, struct inode *inode,
-			  struct delayed_call *callback)
+static char *__page_get_link(struct dentry *dentry, struct inode *inode,
+			     struct delayed_call *callback)
 {
-	char *kaddr;
 	struct page *page;
 	struct address_space *mapping = inode->i_mapping;
 
@@ -5322,8 +5321,23 @@ const char *page_get_link(struct dentry *dentry, struct inode *inode,
 	}
 	set_delayed_call(callback, page_put_link, page);
 	BUG_ON(mapping_gfp_mask(mapping) & __GFP_HIGHMEM);
-	kaddr = page_address(page);
-	nd_terminate_link(kaddr, inode->i_size, PAGE_SIZE - 1);
+	return page_address(page);
+}
+
+const char *page_get_link_raw(struct dentry *dentry, struct inode *inode,
+			      struct delayed_call *callback)
+{
+	return __page_get_link(dentry, inode, callback);
+}
+EXPORT_SYMBOL_GPL(page_get_link_raw);
+
+const char *page_get_link(struct dentry *dentry, struct inode *inode,
+					struct delayed_call *callback)
+{
+	char *kaddr = __page_get_link(dentry, inode, callback);
+
+	if (!IS_ERR(kaddr))
+		nd_terminate_link(kaddr, inode->i_size, PAGE_SIZE - 1);
 	return kaddr;
 }
 

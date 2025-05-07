@@ -67,6 +67,12 @@ static inline bool is_via_compact_memory(int order) { return false; }
 
 #include <trace/hooks/vmscan.h>
 #include <trace/hooks/compaction.h>
+#include <trace/hooks/mm.h>
+
+#undef CREATE_TRACE_POINTS
+#ifndef __GENKSYMS__
+#include <trace/hooks/mm.h>
+#endif
 
 #define block_start_pfn(pfn, order)	round_down(pfn, 1UL << (order))
 #define block_end_pfn(pfn, order)	ALIGN((pfn) + 1, 1UL << (order))
@@ -2296,6 +2302,7 @@ static enum compact_result __compact_finished(struct compact_control *cc)
 	unsigned int order;
 	const int migratetype = cc->migratetype;
 	int ret;
+	bool abort_compact = false;
 
 	/* Compaction run completes if the migrate and free scanner meet */
 	if (compact_scanners_met(cc)) {
@@ -2382,7 +2389,8 @@ static enum compact_result __compact_finished(struct compact_control *cc)
 	}
 
 out:
-	if (cc->contended || fatal_signal_pending(current))
+	trace_android_vh_compact_finished(&abort_compact);
+	if (cc->contended || fatal_signal_pending(current) || abort_compact)
 		ret = COMPACT_CONTENDED;
 
 	return ret;
@@ -2537,6 +2545,7 @@ compact_zone(struct compact_control *cc, struct capture_control *capc)
 	bool update_cached;
 	unsigned int nr_succeeded = 0, nr_migratepages;
 	int order;
+	long vendor_ret;
 
 	/*
 	 * These counters track activities during zone compaction.  Initialize
@@ -2608,6 +2617,7 @@ compact_zone(struct compact_control *cc, struct capture_control *capc)
 		cc->zone->compact_cached_migrate_pfn[0] == cc->zone->compact_cached_migrate_pfn[1];
 
 	trace_mm_compaction_begin(cc, start_pfn, end_pfn, sync);
+	trace_android_vh_mm_compaction_begin(cc, &vendor_ret);
 
 	/* lru_add_drain_all could be expensive with involving other CPUs */
 	lru_add_drain();
@@ -2756,6 +2766,7 @@ out:
 	count_compact_events(COMPACTMIGRATE_SCANNED, cc->total_migrate_scanned);
 	count_compact_events(COMPACTFREE_SCANNED, cc->total_free_scanned);
 
+	trace_android_vh_mm_compaction_end(cc, vendor_ret);
 	trace_mm_compaction_end(cc, start_pfn, end_pfn, sync, ret);
 
 	VM_BUG_ON(!list_empty(&cc->migratepages));
@@ -2892,7 +2903,7 @@ enum compact_result try_to_compact_pages(gfp_t gfp_mask, unsigned int order,
 					|| fatal_signal_pending(current))
 			break;
 	}
-
+	trace_android_vh_compaction_try_to_compact_exit(&rc);
 	return rc;
 }
 
@@ -3162,6 +3173,7 @@ static void kcompactd_do_work(pg_data_t *pgdat)
 		count_compact_events(KCOMPACTD_FREE_SCANNED,
 				     cc.total_free_scanned);
 	}
+	trace_android_vh_compaction_exit(pgdat->node_id, cc.order, cc.highest_zoneidx);
 
 	/*
 	 * Regardless of success, we are done until woken up next. But remember
@@ -3217,6 +3229,7 @@ static int kcompactd(void *p)
 	if (!cpumask_empty(cpumask))
 		set_cpus_allowed_ptr(tsk, cpumask);
 
+	current->flags |= PF_KCOMPACTD;
 	set_freezable();
 
 	pgdat->kcompactd_max_order = 0;
@@ -3276,6 +3289,8 @@ static int kcompactd(void *p)
 			pgdat->proactive_compact_trigger = false;
 	}
 
+	current->flags &= ~PF_KCOMPACTD;
+
 	return 0;
 }
 
@@ -3332,6 +3347,7 @@ static int kcompactd_cpu_online(unsigned int cpu)
 			if (pgdat->kcompactd)
 				set_cpus_allowed_ptr(pgdat->kcompactd, mask);
 	}
+	trace_android_vh_mm_kcompactd_cpu_online(cpu);
 	return 0;
 }
 

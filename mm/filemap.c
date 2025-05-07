@@ -67,6 +67,12 @@
 
 #include "swap.h"
 
+void _trace_android_rvh_mapping_shrinkable(bool *shrinkable)
+{
+	trace_android_rvh_mapping_shrinkable(shrinkable);
+}
+EXPORT_SYMBOL_GPL(_trace_android_rvh_mapping_shrinkable);
+
 /*
  * Shared mappings implemented 30.11.1994. It's not fully working yet,
  * though.
@@ -1906,6 +1912,8 @@ repeat:
 	folio = filemap_get_entry(mapping, index);
 	if (xa_is_value(folio))
 		folio = NULL;
+	trace_android_vh_filemap_get_folio(mapping, index, fgp_flags,
+					gfp, folio);
 	if (!folio)
 		goto no_page;
 
@@ -1985,8 +1993,19 @@ no_page:
 
 		if (err == -EEXIST)
 			goto repeat;
-		if (err)
+		if (err) {
+			/*
+			 * When NOWAIT I/O fails to allocate folios this could
+			 * be due to a nonblocking memory allocation and not
+			 * because the system actually is out of memory.
+			 * Return -EAGAIN so that there caller retries in a
+			 * blocking fashion instead of propagating -ENOMEM
+			 * to the application.
+			 */
+			if ((fgp_flags & FGP_NOWAIT) && err == -ENOMEM)
+				err = -EAGAIN;
 			return ERR_PTR(err);
+		}
 		/*
 		 * filemap_add_folio locks the page, and for mmap
 		 * we expect an unlocked page.
@@ -2428,6 +2447,8 @@ static int filemap_update_page(struct kiocb *iocb,
 		struct folio *folio, bool need_uptodate)
 {
 	int error;
+
+	trace_android_vh_filemap_update_page(mapping, folio, iocb->ki_filp);
 
 	if (iocb->ki_flags & IOCB_NOWAIT) {
 		if (!filemap_invalidate_trylock_shared(mapping))
@@ -3121,6 +3142,8 @@ unlock:
 static int lock_folio_maybe_drop_mmap(struct vm_fault *vmf, struct folio *folio,
 				     struct file **fpin)
 {
+	struct task_struct *tsk = NULL;
+
 	if (folio_trylock(folio))
 		return 1;
 
@@ -3133,6 +3156,7 @@ static int lock_folio_maybe_drop_mmap(struct vm_fault *vmf, struct folio *folio,
 		return 0;
 
 	*fpin = maybe_unlock_mmap_for_io(vmf, *fpin);
+	trace_android_vh_lock_folio_drop_mmap_start(&tsk, vmf, folio, *fpin);
 	if (vmf->flags & FAULT_FLAG_KILLABLE) {
 		if (__folio_lock_killable(folio)) {
 			/*
@@ -3144,11 +3168,13 @@ static int lock_folio_maybe_drop_mmap(struct vm_fault *vmf, struct folio *folio,
 			 */
 			if (*fpin == NULL)
 				release_fault_lock(vmf);
+			trace_android_vh_lock_folio_drop_mmap_end(false, &tsk, vmf, folio, *fpin);
 			return 0;
 		}
 	} else
 		__folio_lock(folio);
 
+	trace_android_vh_lock_folio_drop_mmap_end(true, &tsk, vmf, folio, *fpin);
 	return 1;
 }
 
@@ -3674,12 +3700,14 @@ vm_fault_t filemap_map_pages(struct vm_fault *vmf,
 	unsigned long rss = 0;
 	unsigned int nr_pages = 0, mmap_miss = 0, mmap_miss_saved, folio_type;
 	pgoff_t first_pgoff = 0;
+	pgoff_t orig_start_pgoff = start_pgoff;
 
 	rcu_read_lock();
 	folio = next_uptodate_folio(&xas, mapping, end_pgoff);
 	if (!folio)
 		goto out;
 	first_pgoff = xas.xa_index;
+	orig_start_pgoff = xas.xa_index;
 
 	if (filemap_map_pmd(vmf, folio, start_pgoff)) {
 		ret = VM_FAULT_NOPAGE;
@@ -3730,7 +3758,8 @@ out:
 		WRITE_ONCE(file->f_ra.mmap_miss, 0);
 	else
 		WRITE_ONCE(file->f_ra.mmap_miss, mmap_miss_saved - mmap_miss);
-	trace_android_vh_filemap_map_pages(file, first_pgoff, last_pgoff, ret);
+	trace_android_vh_filemap_map_pages(file, orig_start_pgoff,
+					first_pgoff, last_pgoff, ret);
 
 	return ret;
 }

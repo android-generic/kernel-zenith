@@ -393,6 +393,9 @@ lookup_protocol:
 		if (err)
 			goto out_sk_release;
 	}
+
+	trace_android_rvh_inet_sock_create(sk);
+
 out:
 	trace_android_vh_inet_create(sk, err);
 	return err;
@@ -424,6 +427,8 @@ int inet_release(struct socket *sock)
 #ifdef CONFIG_NETFILTER_XT_MATCH_QTAGUID
 		qtaguid_untag(sock, true);
 #endif
+		trace_android_rvh_inet_sock_release(sk);
+
 		/* Applications forget to leave groups before exiting */
 		ip_mc_drop_socket(sk);
 

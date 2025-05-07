@@ -12,11 +12,8 @@ _COMMON_GKI_MODULES_LIST = [
     "drivers/block/virtio_blk.ko",
     "drivers/block/zram/zram.ko",
     "drivers/bluetooth/btbcm.ko",
-    "drivers/bluetooth/btintel.ko",
     "drivers/bluetooth/btqca.ko",
-    "drivers/bluetooth/btrtl.ko",
     "drivers/bluetooth/btsdio.ko",
-    "drivers/bluetooth/btusb.ko",
     "drivers/bluetooth/hci_uart.ko",
     "drivers/char/virtio_console.ko",
     "drivers/gnss/gnss.ko",
@@ -207,7 +204,10 @@ def get_kunit_modules_list(arch = None):
     return kunit_modules_list
 
 # LINT.IfChange
-_COMMON_UNPROTECTED_MODULES_LIST = []
+_COMMON_UNPROTECTED_MODULES_LIST = [
+    "drivers/block/zram/zram.ko",
+    "mm/zsmalloc.ko",
+]
 # LINT.ThenChange(gki/aarch64/protected_exports)
 
 # buildifier: disable=unnamed-macro

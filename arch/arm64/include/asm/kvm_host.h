@@ -295,8 +295,10 @@ struct kvm_protected_vm {
 	pkvm_handle_t handle;
 	struct kvm_hyp_memcache stage2_teardown_mc;
 	struct rb_root_cached pinned_pages;
+	struct kvm_hyp_memcache teardown_iommu_mc;
 	gpa_t pvmfw_load_addr;
 	bool enabled;
+	u32 ffa_support;
 };
 
 struct kvm_mpidr_data {
@@ -914,6 +916,9 @@ struct kvm_vcpu_arch {
 
 	/* Per-vcpu CCSIDR override or NULL */
 	u32 *ccsidr;
+
+	/* mem cache for pvIOMMU usage in guests. */
+	struct kvm_hyp_memcache iommu_mc;
 
 	/* PAGE_SIZE bound list of requests from the hypervisor to the host. */
 	struct kvm_hyp_req *hyp_reqs;
@@ -1713,6 +1718,11 @@ struct kvm_iommu_driver {
 	int (*init_driver)(void);
 	void (*remove_driver)(void);
 	pkvm_handle_t (*get_iommu_id_by_of)(struct device_node *np);
+	int (*get_device_iommu_num_ids)(struct device *dev);
+	int (*get_device_iommu_id)(struct device *dev, u32 id,
+				   pkvm_handle_t *out_iommu, u32 *out_sid);
+	void *(*guest_alloc)(void *flags, unsigned long order);
+	void (*guest_free)(void *addr, void *flags, unsigned long order);
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);
@@ -1734,6 +1744,9 @@ pkvm_handle_t kvm_get_iommu_id_by_of(struct device_node *np);
 int pkvm_iommu_suspend(struct device *dev);
 int pkvm_iommu_resume(struct device *dev);
 
+int kvm_iommu_guest_alloc_mc(struct kvm_hyp_memcache *mc, u32 pgsize, u32 nr_pages);
+void kvm_iommu_guest_free_mc(struct kvm_hyp_memcache *mc);
+
 struct kvm_iommu_sg {
 	phys_addr_t phys;
 	size_t pgsize;
@@ -1750,9 +1763,40 @@ static inline void kvm_iommu_sg_free(struct kvm_iommu_sg *sg, unsigned int nents
 	free_pages_exact(sg, PAGE_ALIGN(nents * sizeof(struct kvm_iommu_sg)));
 }
 
+
+#ifndef __KVM_NVHE_HYPERVISOR__
+int kvm_iommu_attach_dev(pkvm_handle_t iommu_id, pkvm_handle_t domain_id,
+			 unsigned int endpoint, unsigned int pasid,
+			 unsigned int ssid_bits, unsigned long flags);
+int kvm_iommu_detach_dev(pkvm_handle_t iommu_id, pkvm_handle_t domain_id,
+			 unsigned int endpoint, unsigned int pasid);
+int kvm_iommu_alloc_domain(pkvm_handle_t domain_id, int type);
+int kvm_iommu_free_domain(pkvm_handle_t domain_id);
+int kvm_iommu_map_pages(pkvm_handle_t domain_id, unsigned long iova,
+			phys_addr_t paddr, size_t pgsize, size_t pgcount,
+			int prot, gfp_t gfp, size_t *total_mapped);
+size_t kvm_iommu_unmap_pages(pkvm_handle_t domain_id, unsigned long iova,
+			     size_t pgsize, size_t pgcount);
+phys_addr_t kvm_iommu_iova_to_phys(pkvm_handle_t domain_id, unsigned long iova);
+size_t kvm_iommu_map_sg(pkvm_handle_t domain_id, struct kvm_iommu_sg *sg,
+			unsigned long iova, unsigned int nent,
+			unsigned int prot, gfp_t gfp);
+#endif
+
 int kvm_iommu_share_hyp_sg(struct kvm_iommu_sg *sg, unsigned int nents);
 int kvm_iommu_unshare_hyp_sg(struct kvm_iommu_sg *sg, unsigned int nents);
-
+int kvm_iommu_device_num_ids(struct device *dev);
+int kvm_iommu_device_id(struct device *dev, u32 idx,
+			pkvm_handle_t *out_iommu, u32 *out_sid);
 #define __KVM_HAVE_ARCH_ASSIGNED_DEVICE_GROUP
 
+static inline phys_addr_t kvm_host_pa(void *addr)
+{
+	return __pa(addr);
+}
+
+static inline void *kvm_host_va(phys_addr_t phys)
+{
+	return __va(phys);
+}
 #endif /* __ARM64_KVM_HOST_H__ */

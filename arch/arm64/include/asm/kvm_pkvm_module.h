@@ -51,6 +51,14 @@ enum pkvm_psci_notification {
  *				new mapping is visible.
  * @fixmap_unmap:		Unmap a page from the hypervisor fixmap. This
  * 				call is required between each @fixmap_map().
+ * @fixblock_map:		Map a PMD-size large page into a CPU-shared
+ *				fixmap. This can be used to replace and speed-up
+ *				a set of @fixmap_map. @fixblock_unmap must be
+ *				called between each mappings to do cache
+ *				maintenance and ensure the new mapping is visible.
+ * @fixblock_unmap:		Unmap a PMD-size large page from the hypervisor
+ *				fixmap. This call is required between each
+ *				@fixblock_map.
  * @linear_map_early:		Map a large portion of memory into the
  *				hypervisor linear VA space. This is intended to
  *				be used only for module bootstrap and must be
@@ -158,7 +166,7 @@ enum pkvm_psci_notification {
  *				Missing donations if allocator returns NULL
  * @iommu_iotlb_gather_add_page:
  *				Add an IOVA range to an iommu_iotlb_gather.
- * @pkvm_host_unuse_dma:	Decrement the refcount for pages used for DMA,
+ * @pkvm_unuse_dma:		Decrement the refcount for pages used for DMA,
  * 				this is typically called from the module after a
  * 				successful unmap() operation, so the hypervisor
  * 				can track the page state.
@@ -197,6 +205,8 @@ struct pkvm_module_ops {
 	void (*putx64)(u64 x);
 	void *(*fixmap_map)(phys_addr_t phys);
 	void (*fixmap_unmap)(void);
+	void *(*fixblock_map)(phys_addr_t phys);
+	void (*fixblock_unmap)(void);
 	void *(*linear_map_early)(phys_addr_t phys, size_t size, enum kvm_pgtable_prot prot);
 	void (*linear_unmap_early)(void *addr, size_t size);
 	void (*flush_dcache_to_poc)(void *addr, size_t size);
@@ -240,7 +250,7 @@ struct pkvm_module_ops {
 					    struct iommu_iotlb_gather *gather,
 					    unsigned long iova,
 					    size_t size);
-	int (*pkvm_host_unuse_dma)(phys_addr_t phys_addr, size_t size);
+	int (*pkvm_unuse_dma)(phys_addr_t phys_addr, size_t size);
 #ifdef CONFIG_LIST_HARDENED
 	/* These 2 functions change calling convention based on CONFIG_DEBUG_LIST. */
 	typeof(__list_add_valid_or_report) *list_add_valid_or_report;

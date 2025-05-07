@@ -36,6 +36,7 @@
 
 #include "pnode.h"
 #include "internal.h"
+#include <trace/hooks/blk.h>
 
 /* Maximum number of mounts in a mount namespace */
 static unsigned int sysctl_mount_max __read_mostly = 100000;
@@ -1477,7 +1478,7 @@ struct vfsmount *mntget(struct vfsmount *mnt)
 		mnt_add_count(real_mount(mnt), 1);
 	return mnt;
 }
-EXPORT_SYMBOL(mntget);
+EXPORT_SYMBOL_NS_GPL(mntget, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /*
  * Make a mount point inaccessible to new lookups.
@@ -3454,6 +3455,8 @@ static int do_new_mount_fc(struct fs_context *fc, struct path *mountpoint,
 	unlock_mount(mp);
 	if (error < 0)
 		mntput(mnt);
+	else
+		trace_android_vh_do_new_mount_fc(mountpoint, mnt);
 	return error;
 }
 

@@ -27,6 +27,10 @@ DECLARE_HOOK(android_vh_f2fs_printk,
 	TP_PROTO(struct f2fs_sb_info *sbi, struct va_format *vaf, int level, bool limit_rate),
 	TP_ARGS(sbi, vaf, level, limit_rate));
 
+DECLARE_HOOK(android_vh_f2fs_create,
+	TP_PROTO(struct inode *inode, struct dentry *dentry),
+	TP_ARGS(inode, dentry));
+
 DECLARE_HOOK(android_vh_wb_dirty_limits,
 	TP_PROTO(unsigned long *thresh, struct bdi_writeback *wb),
 	TP_ARGS(thresh, wb));
@@ -60,6 +64,11 @@ DECLARE_HOOK(android_vh_vfs_fsync_range,
 DECLARE_RESTRICTED_HOOK(android_rvh_do_fcntl,
 	TP_PROTO(struct file *filp, unsigned int cmd, unsigned long arg, long *err),
 	TP_ARGS(filp, cmd, arg, err), 1);
+
+DECLARE_HOOK(android_vh_f2fs_file_open,
+	TP_PROTO(struct inode *inode, struct file *filp),
+	TP_ARGS(inode, filp));
+
 #endif /* _TRACE_HOOK_FS_H */
 
 /* This part must be outside protection */

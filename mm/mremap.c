@@ -25,6 +25,7 @@
 #include <linux/uaccess.h>
 #include <linux/userfaultfd_k.h>
 #include <linux/mempolicy.h>
+#include <linux/page_size_compat.h>
 
 #include <asm/cacheflush.h>
 #include <asm/tlb.h>
@@ -705,8 +706,8 @@ static unsigned long move_vma(struct vm_area_struct *vma,
 	unsigned long vm_flags = vma->vm_flags;
 	unsigned long new_pgoff;
 	unsigned long moved_len;
-	unsigned long account_start = 0;
-	unsigned long account_end = 0;
+	bool account_start = false;
+	bool account_end = false;
 	unsigned long hiwater_vm;
 	int err = 0;
 	bool need_rmap_locks;
@@ -790,9 +791,9 @@ static unsigned long move_vma(struct vm_area_struct *vma,
 	if (vm_flags & VM_ACCOUNT && !(flags & MREMAP_DONTUNMAP)) {
 		vm_flags_clear(vma, VM_ACCOUNT);
 		if (vma->vm_start < old_addr)
-			account_start = vma->vm_start;
+			account_start = true;
 		if (vma->vm_end > old_addr + old_len)
-			account_end = vma->vm_end;
+			account_end = true;
 	}
 
 	/*
@@ -832,7 +833,7 @@ static unsigned long move_vma(struct vm_area_struct *vma,
 		/* OOM: unable to split vma, just get accounts right */
 		if (vm_flags & VM_ACCOUNT && !(flags & MREMAP_DONTUNMAP))
 			vm_acct_memory(old_len >> PAGE_SHIFT);
-		account_start = account_end = 0;
+		account_start = account_end = false;
 	}
 
 	if (vm_flags & VM_LOCKED) {
@@ -1063,11 +1064,11 @@ SYSCALL_DEFINE5(mremap, unsigned long, addr, unsigned long, old_len,
 		return ret;
 
 
-	if (offset_in_page(addr))
+	if (__offset_in_page_log(addr))
 		return ret;
 
-	old_len = PAGE_ALIGN(old_len);
-	new_len = PAGE_ALIGN(new_len);
+	old_len = __PAGE_ALIGN(old_len);
+	new_len = __PAGE_ALIGN(new_len);
 
 	/*
 	 * We allow a zero old-len as a special case

@@ -752,7 +752,8 @@ static void verity_bh_work(struct work_struct *w)
 static inline bool verity_use_bh(unsigned int bytes, unsigned short ioprio)
 {
 	return ioprio <= IOPRIO_CLASS_IDLE &&
-		bytes <= READ_ONCE(dm_verity_use_bh_bytes[ioprio]);
+		bytes <= READ_ONCE(dm_verity_use_bh_bytes[ioprio]) &&
+		!need_resched();
 }
 
 static void verity_end_io(struct bio *bio)
@@ -904,6 +905,13 @@ static int verity_map(struct dm_target *ti, struct bio *bio)
 	submit_bio_noacct(bio);
 
 	return DM_MAPIO_SUBMITTED;
+}
+
+static void verity_postsuspend(struct dm_target *ti)
+{
+	struct dm_verity *v = ti->private;
+	flush_workqueue(v->verify_wq);
+	dm_bufio_client_reset(v->bufio);
 }
 
 /*
@@ -1881,6 +1889,7 @@ static struct target_type verity_target = {
 	.ctr		= verity_ctr,
 	.dtr		= verity_dtr,
 	.map		= verity_map,
+	.postsuspend	= verity_postsuspend,
 	.status		= verity_status,
 	.prepare_ioctl	= verity_prepare_ioctl,
 	.iterate_devices = verity_iterate_devices,

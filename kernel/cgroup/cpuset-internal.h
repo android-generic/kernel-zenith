@@ -3,6 +3,7 @@
 #ifndef __CPUSET_INTERNAL_H
 #define __CPUSET_INTERNAL_H
 
+#include <linux/android_kabi.h>
 #include <linux/cgroup.h>
 #include <linux/cpu.h>
 #include <linux/cpumask.h>
@@ -33,7 +34,9 @@ enum prs_errcode {
 	PERR_CPUSEMPTY,
 	PERR_HKEEPING,
 	PERR_ACCESS,
+	PERR_REMOTE,
 };
+ANDROID_KABI_ENUMERATOR_IGNORE(prs_errcode, PERR_REMOTE);
 
 /* bits in struct cpuset flags field */
 typedef enum {
@@ -180,6 +183,8 @@ struct cpuset {
 
 	/* Used to merge intersecting subsets for generate_sched_domains */
 	struct uf_node node;
+
+	ANDROID_BACKPORT_RESERVE(1);
 };
 
 static inline struct cpuset *css_cs(struct cgroup_subsys_state *css)

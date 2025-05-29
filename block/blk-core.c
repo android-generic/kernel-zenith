@@ -621,6 +621,13 @@ static inline blk_status_t blk_check_zone_append(struct request_queue *q,
 	return BLK_STS_OK;
 }
 
+/*
+ * Do not call bio_queue_enter() if the BIO_ZONE_WRITE_PLUGGING flag has been
+ * set because this causes blk_mq_freeze_queue() to deadlock if
+ * blk_zone_wplug_bio_work() submits a bio. Calling bio_queue_enter() for bios
+ * on the plug list is not necessary since a q_usage_counter reference is held
+ * while a bio is on the plug list.
+ */
 static void __submit_bio(struct bio *bio)
 {
 	/* If plug is not used, add new plug here to cache nsecs time. */
@@ -633,8 +640,12 @@ static void __submit_bio(struct bio *bio)
 
 	if (!bdev_test_flag(bio->bi_bdev, BD_HAS_SUBMIT_BIO)) {
 		blk_mq_submit_bio(bio);
-	} else if (likely(bio_queue_enter(bio) == 0)) {
+	} else {
 		struct gendisk *disk = bio->bi_bdev->bd_disk;
+		bool zwp = bio_zone_write_plugging(bio);
+
+		if (unlikely(!zwp && bio_queue_enter(bio) != 0))
+			goto finish_plug;
 	
 		if ((bio->bi_opf & REQ_POLLED) &&
 		    !(disk->queue->limits.features & BLK_FEAT_POLL)) {
@@ -643,9 +654,12 @@ static void __submit_bio(struct bio *bio)
 		} else {
 			disk->fops->submit_bio(bio);
 		}
-		blk_queue_exit(disk->queue);
+
+		if (!zwp)
+			blk_queue_exit(disk->queue);
 	}
 
+finish_plug:
 	blk_finish_plug(&plug);
 }
 
@@ -882,8 +896,41 @@ end_io:
 }
 EXPORT_SYMBOL(submit_bio_noacct);
 
+#ifdef CONFIG_BLK_DEV_ZONED
+/**
+ * blk_bio_is_seq_zoned_write() - Check if @bio requires write serialization.
+ * @bio: Bio to examine.
+ *
+ * Note: REQ_OP_ZONE_APPEND bios do not require serialization.
+ * Note: this function treats conventional zones on a zoned block device as
+ *   sequential zones. This is fine since zoned UFS devices have no conventional
+ *   zones.
+ */
+static bool blk_bio_is_seq_zoned_write(struct bio *bio)
+{
+	if (!bdev_is_zoned(bio->bi_bdev))
+		return false;
+
+	return bio_op(bio) == REQ_OP_WRITE ||
+		bio_op(bio) == REQ_OP_WRITE_ZEROES;
+}
+#else
+static bool blk_bio_is_seq_zoned_write(struct bio *bio)
+{
+	return false;
+}
+#endif
+
 static void bio_set_ioprio(struct bio *bio)
 {
+	/*
+	 * Do not set the I/O priority of sequential zoned write bios because
+	 * this could lead to reordering by the mq-deadline I/O scheduler and
+	 * hence to unaligned write errors.
+	 */
+	if (blk_bio_is_seq_zoned_write(bio))
+		return;
+
 	/* Nobody set ioprio so far? Initialize it based on task's nice value */
 	if (IOPRIO_PRIO_CLASS(bio->bi_ioprio) == IOPRIO_CLASS_NONE)
 		bio->bi_ioprio = get_current_ioprio();
@@ -1127,8 +1174,8 @@ void blk_start_plug_nr_ios(struct blk_plug *plug, unsigned short nr_ios)
 		return;
 
 	plug->cur_ktime = 0;
-	plug->mq_list = NULL;
-	plug->cached_rq = NULL;
+	rq_list_init(&plug->mq_list);
+	rq_list_init(&plug->cached_rqs);
 	plug->nr_ios = min_t(unsigned short, nr_ios, BLK_MAX_REQUEST_COUNT);
 	plug->rq_count = 0;
 	plug->multiple_queues = false;
@@ -1224,7 +1271,7 @@ void __blk_flush_plug(struct blk_plug *plug, bool from_schedule)
 	 * queue for cached requests, we don't want a blocked task holding
 	 * up a queue freeze/quiesce event.
 	 */
-	if (unlikely(!rq_list_empty(plug->cached_rq)))
+	if (unlikely(!rq_list_empty(&plug->cached_rqs)))
 		blk_mq_free_plug_rqs(plug);
 
 	plug->cur_ktime = 0;

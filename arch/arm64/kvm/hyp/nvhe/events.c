@@ -5,9 +5,9 @@
 
 #include <nvhe/mm.h>
 #include <nvhe/mem_protect.h>
-#include <nvhe/trace/trace.h>
+#include <nvhe/trace.h>
 
-#include <nvhe/trace/define_events.h>
+#include <nvhe/define_events.h>
 
 extern struct hyp_event_id __hyp_event_ids_start[];
 extern struct hyp_event_id __hyp_event_ids_end[];
@@ -29,7 +29,7 @@ static struct {
 	} funcs;
 } hyp_mod_events[MAX_MOD_EVENTS];
 
-#ifdef CONFIG_PROTECTED_NVHE_FTRACE
+#ifdef CONFIG_PKVM_FTRACE
 int __pkvm_sync_ftrace(unsigned long host_funcs_pg)
 {
 	unsigned long *funcs_pg = (unsigned long *)kern_hyp_va(host_funcs_pg);

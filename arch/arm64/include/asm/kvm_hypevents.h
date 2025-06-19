@@ -4,14 +4,14 @@
 #define __ARM64_KVM_HYPEVENTS_H_
 
 #ifdef __KVM_NVHE_HYPERVISOR__
-#include <nvhe/trace/trace.h>
+#include <nvhe/trace.h>
 #endif
 
 /*
  * Hypervisor events definitions.
  */
 
-#ifdef CONFIG_PROTECTED_NVHE_FTRACE
+#ifdef CONFIG_PKVM_FTRACE
 HYP_EVENT(func,
 	HE_PROTO(unsigned long ip, unsigned long parent),
 	HE_STRUCT(
@@ -142,7 +142,7 @@ HYP_EVENT(vcpu_illegal_trap,
 	HE_PRINTK("esr_el2=%llx", __entry->esr)
 );
 
-#ifdef CONFIG_PROTECTED_NVHE_TESTING
+#ifdef CONFIG_PKVM_SELFTESTS
 HYP_EVENT(selftest,
 	  HE_PROTO(void),
 	  HE_STRUCT(),

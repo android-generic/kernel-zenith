@@ -693,6 +693,9 @@ static void __exit xt_flowoffload_tg_exit(void)
 	nf_flow_table_free(&flowtable[1].ft);
 }
 
-MODULE_LICENSE("GPL");
 module_init(xt_flowoffload_tg_init);
 module_exit(xt_flowoffload_tg_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Felix Fietkau <nbd@nbd.name>");
+MODULE_DESCRIPTION("Netfilter FLOWOFFLOAD nf_flow_offload module");

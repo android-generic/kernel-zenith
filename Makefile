@@ -888,9 +888,13 @@ KBUILD_CFLAGS	+= -fno-delete-null-pointer-checks
 
 ifdef CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE
 KBUILD_CFLAGS += -O2
+# Enable software pipelining (Swing Modulo Scheduling) for innermost loops.
+KBUILD_CFLAGS += $(call cc-option,-fmodulo-sched -fmodulo-sched-allow-regmoves) \
+		 $(call cc-option,-mllvm -enable-pipeliner)
 KBUILD_RUSTFLAGS += -Copt-level=2
 else ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS += -Os
+KBUILD_CFLAGS += $(call cc-option,-mllvm -enable-pipeliner-opt-size)
 KBUILD_RUSTFLAGS += -Copt-level=s
 endif
 

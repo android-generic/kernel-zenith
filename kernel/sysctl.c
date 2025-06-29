@@ -80,6 +80,8 @@ EXPORT_SYMBOL_GPL(sysctl_long_vals);
 
 #if defined(CONFIG_SYSCTL)
 
+extern int sysctl_sched_yield_type;
+
 /* Constants used for minimum and maximum */
 static const int ngroups_max = NGROUPS_MAX;
 static const int cap_last_cap = CAP_LAST_CAP;
@@ -1594,6 +1596,15 @@ static const struct ctl_table kern_table[] = {
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
+	},
+	{
+		.procname	= "yield_type",
+		.data		= &sysctl_sched_yield_type,
+		.maxlen		= sizeof (int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_TWO,
 	},
 #ifdef CONFIG_PROC_SYSCTL
 	{

@@ -1426,6 +1426,8 @@ source "drivers/hid/intel-ish-hid/Kconfig"
 
 source "drivers/hid/amd-sfh-hid/Kconfig"
 
+source "drivers/hid/asus-ally-hid/Kconfig"
+
 source "drivers/hid/surface-hid/Kconfig"
 
 source "drivers/hid/intel-thc-hid/Kconfig"
@@ -1439,5 +1441,7 @@ source "drivers/hid/usbhid/Kconfig"
 source "drivers/hid/spi-hid/Kconfig"
 
 source "drivers/hid/dockchannel-hid/Kconfig"
+
+source "drivers/hid/zotac-zone-hid/Kconfig"
 
 endif # HID_SUPPORT

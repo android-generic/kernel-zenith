@@ -20,11 +20,14 @@
 #undef  __SYSCALL_NORETURN
 #define __SYSCALL_NORETURN __SYSCALL
 
-/*
- * The sys_call_table[] is no longer used for system calls, but
- * kernel/trace/trace_syscalls.c still wants to know the system
- * call address.
- */
+#ifdef CONFIG_X86_X32_ABI
+#define __SYSCALL(nr, sym) __x64_##sym,
+const sys_call_ptr_t x32_sys_call_table[] = {
+#include <asm/syscalls_x32.h>
+};
+#undef __SYSCALL
+#endif
+
 #define __SYSCALL(nr, sym) __x64_##sym,
 const sys_call_ptr_t sys_call_table[] = {
 #include <asm/syscalls_64.h>
@@ -60,7 +63,10 @@ static __always_inline bool do_syscall_x64(struct pt_regs *regs, int nr)
 
 	if (likely(unr < NR_syscalls)) {
 		unr = array_index_nospec(unr, NR_syscalls);
-		regs->ax = x64_sys_call(regs, unr);
+		if (likely(cpu_feature_enabled(X86_FEATURE_INDIRECT_SAFE)))
+			regs->ax = sys_call_table[unr](regs);
+		else
+			regs->ax = x64_sys_call(regs, unr);
 		return true;
 	}
 	return false;
@@ -77,7 +83,10 @@ static __always_inline bool do_syscall_x32(struct pt_regs *regs, int nr)
 
 	if (IS_ENABLED(CONFIG_X86_X32_ABI) && likely(xnr < X32_NR_syscalls)) {
 		xnr = array_index_nospec(xnr, X32_NR_syscalls);
-		regs->ax = x32_sys_call(regs, xnr);
+		if (likely(cpu_feature_enabled(X86_FEATURE_INDIRECT_SAFE)))
+			regs->ax = x32_sys_call_table[xnr](regs);
+		else
+			regs->ax = x32_sys_call(regs, xnr);
 		return true;
 	}
 	return false;

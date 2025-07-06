@@ -249,7 +249,7 @@ EOF
 fi
 fi
 
-if is_enabled CONFIG_DEBUG_INFO; then
+if is_enabled CONFIG_DEBUG_INFO && [ "${DEB_DEBUG_PKG:-}" ]; then
 cat <<EOF >> debian/control
 
 Package: linux-image-${KERNELRELEASE}-dbg

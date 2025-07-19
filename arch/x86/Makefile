@@ -71,6 +71,12 @@ export BITS
 # More compiler optimizations
 ifdef CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE
 KBUILD_CFLAGS += -O3 $(call cc-option,-fivopts)
+KBUILD_CFLAGS += $(call cc-option,-mllvm=-polly -mllvm=-polly-ast-use-context \
+		 -mllvm=-polly-invariant-load-hoisting -mllvm=-polly-loopfusion-greedy \
+		 -mllvm=-polly-run-inliner -mllvm=-polly-vectorizer=stripmine)
+ifdef CONFIG_LD_DEAD_CODE_DATA_ELIMINATION
+KBUILD_CFLAGS += $(call cc-option,-mllvm=-polly-run-dce)
+endif
 KBUILD_RUSTFLAGS += -Copt-level=3
 endif
 

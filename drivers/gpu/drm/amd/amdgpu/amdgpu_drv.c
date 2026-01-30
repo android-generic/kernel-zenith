@@ -246,7 +246,6 @@ int amdgpu_damage_clips = -1; /* auto */
 int amdgpu_umsch_mm_fwlog;
 int amdgpu_rebar = -1; /* auto */
 int amdgpu_user_queue = -1;
-int amdgpu_allm_mode = 1;
 
 DECLARE_DYNDBG_CLASSMAP(drm_debug_classes, DD_CLASS_TYPE_DISJOINT_BITS, 0,
 			"DRM_UT_CORE",
@@ -1128,17 +1127,6 @@ module_param_named(rebar, amdgpu_rebar, int, 0444);
  */
 MODULE_PARM_DESC(user_queue, "Enable user queues (-1 = auto (default), 0 = disable, 1 = enable, 2 = enable UQs and disable KQs)");
 module_param_named(user_queue, amdgpu_user_queue, int, 0444);
-
-/**
- * DOC: allm_mode (int)
- * Changes ALLM triggering mode (if sink supports ALLM). Possible values:
- *
- * -  0 = ALLM disabled
- * -  1 = ALLM dynamically triggered with VRR
- * -  2 = ALLM forced always on
- */
-MODULE_PARM_DESC(allm_mode, "Changes ALLM trigger mode (0 = disable, 1 = enable (default), 2 = force enable)");
-module_param_named(allm_mode, amdgpu_allm_mode, int, 0644);
 
 /* These devices are not supported by amdgpu.
  * They are supported by the mach64, r128, radeon drivers

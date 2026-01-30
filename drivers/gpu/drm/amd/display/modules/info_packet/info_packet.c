@@ -23,13 +23,12 @@
  *
  */
 
-#include "amdgpu.h"
-#include "core_types.h"
-#include "dc.h"
-#include "dc_types.h"
-#include "mod_freesync.h"
 #include "mod_info_packet.h"
+#include "core_types.h"
+#include "dc_types.h"
 #include "mod_shared.h"
+#include "mod_freesync.h"
+#include "dc.h"
 
 enum vsc_packet_revision {
 	vsc_packet_undefined = 0,
@@ -50,12 +49,6 @@ enum vsc_packet_revision {
 #define HF_VSIF_VERSION  1
 #define HF_VSIF_3D_BIT   0
 #define HF_VSIF_ALLM_BIT 1
-
-enum allm_trigger_mode {
-	ALLM_DISABLED        = 0,
-	ALLM_ENABLED_DYNAMIC = 1,
-	ALLM_ENABLED_FORCED  = 2,
-};
 
 // VTEM Byte Offset
 #define VTEM_PB0		0
@@ -469,27 +462,6 @@ static bool is_hdmi_vic_mode(const struct dc_stream_state *stream)
 	return true;
 }
 
-static bool should_enable_allm(const struct dc_stream_state *stream)
-{
-	/* Sink doesn't expose ALLM support in edid */
-	if (!stream->link->local_sink->edid_caps.allm)
-		return false;
-
-	switch (amdgpu_allm_mode) {
-	case ALLM_DISABLED:
-		break;
-
-	case ALLM_ENABLED_FORCED:
-		return true;
-
-	case ALLM_ENABLED_DYNAMIC:
-	default:
-		return stream->vrr_active_variable;
-	}
-
-	return false;
-}
-
 /**
  *  mod_build_hf_vsif_infopacket - Prepare HDMI Vendor Specific info frame.
  *                                 Follows HDMI Spec to build up Vendor Specific info frame
@@ -513,7 +485,7 @@ void mod_build_hf_vsif_infopacket(const struct dc_stream_state *stream,
 
 		info_packet->valid = false;
 
-		allm = should_enable_allm(stream);
+		allm = stream->link->local_sink->edid_caps.allm;
 		format = stream->view_format == VIEW_3D_FORMAT_NONE ?
 			 TIMING_3D_FORMAT_NONE :
 			 stream->timing.timing_3d_format;

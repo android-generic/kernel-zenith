@@ -433,7 +433,8 @@ void mod_build_vsc_infopacket(const struct dc_stream_state *stream,
 static bool is_hdmi_allm_mode(const struct dc_stream_state *stream)
 {
 	/* Sink doesn't expose ALLM support in edid */
-	if (!stream->link->local_sink->edid_caps.allm)
+	if (!stream->link->local_sink ||
+	    !stream->link->local_sink->edid_caps.allm)
 		return false;
 
 	switch (amdgpu_allm_mode) {

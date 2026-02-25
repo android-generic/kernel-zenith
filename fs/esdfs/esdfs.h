@@ -222,13 +222,13 @@ void esdfs_truncate_share(struct super_block *, struct inode *, loff_t newsize);
 
 void esdfs_derive_lower_ownership(struct dentry *dentry, const char *name);
 
-static inline bool is_obb(struct qstr *name)
+static inline bool is_obb(const struct qstr *name)
 {
 	struct qstr q_obb = QSTR_LITERAL("obb");
 	return qstr_case_eq(name, &q_obb);
 }
 
-static inline bool is_dl(struct qstr *name)
+static inline bool is_dl(const struct qstr *name)
 {
 	struct qstr q_dl = QSTR_LITERAL("Download");
 

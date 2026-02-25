@@ -491,9 +491,7 @@ out:
 static int esdfs_do_getattr(const struct path *path, struct kstat *stat,
 			       u32 request_mask, unsigned int flags)
 {
-	if (flags & AT_GETATTR_NOSEC)
-		return vfs_getattr_nosec(path, stat, request_mask, flags);
-	return vfs_getattr(path, stat, request_mask, flags);
+    return vfs_getattr(path, stat, request_mask, flags);
 }
 
 static int esdfs_getattr(struct mnt_idmap *idmap, 

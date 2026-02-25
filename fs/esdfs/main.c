@@ -148,11 +148,6 @@ static int parse_perms(struct esdfs_perms *perms, char *args)
 	return 0;
 }
 
-static inline struct user_namespace *to_user_ns(struct ns_common *ns)
-{
-	return container_of(ns, struct user_namespace, ns);
-}
-
 static struct user_namespace *get_ns_from_fd(int fd)
 {
 	struct fd f = fdget(fd);
@@ -500,7 +495,7 @@ static int esdfs_read_super(struct super_block *sb, const char *dev_name,
 		err = -ENOMEM;
 		goto out_sput;
 	}
-	d_set_d_op(root_dentry, &esdfs_dops);
+	root_dentry->d_op = &esdfs_dops;
 
 	/* link the upper and lower dentries */
 	root_dentry->d_fsdata = NULL;

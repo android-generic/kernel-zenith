@@ -305,7 +305,7 @@ static struct dentry *__esdfs_lookup(struct dentry *dentry,
 	struct dentry *ret_dentry = NULL;
 
 	/* must initialize dentry operations */
-	d_set_d_op(dentry, &esdfs_dops);
+	dentry->d_op = &esdfs_dops;
 
 	if (IS_ROOT(dentry))
 		goto out;

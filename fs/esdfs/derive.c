@@ -32,7 +32,7 @@ static struct qstr names_secure[] = {
 };
 
 /* special path name searches */
-static inline bool match_name(struct qstr *name, struct qstr names[])
+static inline bool match_name(const struct qstr *name, const struct qstr names[])
 {
 	int i = 0;
 

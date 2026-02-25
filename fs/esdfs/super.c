@@ -288,5 +288,5 @@ const struct super_operations esdfs_sops = {
 	.show_options	= esdfs_show_options,
 	.alloc_inode	= esdfs_alloc_inode,
 	.destroy_inode	= esdfs_destroy_inode,
-	.drop_inode	= generic_delete_inode,
+	.drop_inode	= inode_generic_drop,
 };

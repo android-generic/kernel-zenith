@@ -130,10 +130,11 @@ out:
 	return err;
 }
 
-static int esdfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
-		       struct dentry *dentry, umode_t mode)
+static struct dentry *esdfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+                                  struct dentry *dentry, umode_t mode)
 {
 	int err;
+	struct dentry *lower_res;
 	struct dentry *lower_dentry;
 	struct dentry *lower_parent_dentry = NULL;
 	struct path lower_path;
@@ -142,11 +143,11 @@ static int esdfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
 			esdfs_override_creds(ESDFS_SB(dir->i_sb),
 					ESDFS_I(dir), &mask);
 	if (!creds)
-		return -ENOMEM;
+		return ERR_PTR(-ENOMEM);
 
 	if (test_opt(ESDFS_SB(dir->i_sb), ACCESS_DISABLE)) {
 		esdfs_revert_creds(creds, NULL);
-		return -ENOENT;
+		return ERR_PTR(-ENOENT);
 	}
 
 	esdfs_get_lower_path(dentry, &lower_path);
@@ -155,10 +156,13 @@ static int esdfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
 
 	mode |= S_IFDIR;
 	esdfs_set_lower_mode(ESDFS_SB(dir->i_sb), ESDFS_I(dir), &mode);
-	err = vfs_mkdir(idmap, lower_parent_dentry->d_inode, lower_dentry,
-			mode);
-	if (err)
-		goto unlock_lower_parent;
+	lower_res = vfs_mkdir(idmap, lower_parent_dentry->d_inode, lower_dentry, mode);
+    if (IS_ERR(lower_res)) {
+        err = PTR_ERR(lower_res);
+        goto unlock_lower_parent;
+    } else if (lower_res) {
+        dput(lower_res); /* Drop the reference if the kernel instantiated a specific dentry */
+    }
 
 	err = esdfs_interpose(dentry, dir->i_sb, &lower_path,
 				ESDFS_I(dir)->userid);
@@ -182,7 +186,7 @@ unlock_lower_parent:
 out:
 	esdfs_put_lower_path(dentry, &lower_path);
 	esdfs_revert_creds(creds, &mask);
-	return err;
+	return err ? ERR_PTR(err) : NULL;
 }
 
 static int esdfs_rmdir(struct inode *dir, struct dentry *dentry)
@@ -303,11 +307,10 @@ static int esdfs_rename(struct mnt_idmap *idmap,
 		goto out;
 	}
 
-	rd.old_mnt_idmap = idmap;
-	rd.old_dir = lower_old_dir_dentry->d_inode;
+	rd.mnt_idmap = idmap;
+	rd.old_parent = lower_old_dir_dentry;
 	rd.old_dentry = lower_old_dentry;
-	rd.new_mnt_idmap = idmap;
-	rd.new_dir = lower_new_dir_dentry->d_inode;
+	rd.new_parent = lower_new_dir_dentry;
 	rd.new_dentry = lower_new_dentry;
 	rd.flags = flags;
  
@@ -488,9 +491,7 @@ out:
 static int esdfs_do_getattr(const struct path *path, struct kstat *stat,
 			       u32 request_mask, unsigned int flags)
 {
-	if (flags & AT_GETATTR_NOSEC)
-		return vfs_getattr_nosec(path, stat, request_mask, flags);
-	return vfs_getattr(path, stat, request_mask, flags);
+    return vfs_getattr(path, stat, request_mask, flags);
 }
 
 static int esdfs_getattr(struct mnt_idmap *idmap, 

@@ -19,7 +19,8 @@
  *          0: tell VFS to invalidate dentry
  *          1: dentry is valid
  */
-static int esdfs_d_revalidate(struct dentry *dentry, unsigned int flags)
+static int esdfs_d_revalidate(struct inode *dir, const struct qstr *name,
+							struct dentry *dentry, unsigned int flags)
 {
 	struct path lower_path;
 	struct path lower_parent_path;
@@ -50,7 +51,10 @@ static int esdfs_d_revalidate(struct dentry *dentry, unsigned int flags)
 		goto drop;
 
 	if (lower_dentry->d_flags & DCACHE_OP_REVALIDATE) {
-		err = lower_dentry->d_op->d_revalidate(lower_dentry, flags);
+		struct name_snapshot n;
+        take_dentry_name_snapshot(&n, lower_dentry);
+		err = lower_dentry->d_op->d_revalidate(d_inode(lower_parent_dentry), &n.name, lower_dentry, flags);
+		release_dentry_name_snapshot(&n);
 		if (err == 0)
 			goto drop;
 	}

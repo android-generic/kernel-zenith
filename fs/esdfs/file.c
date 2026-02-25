@@ -160,21 +160,21 @@ static int esdfs_mmap(struct file *file, struct vm_area_struct *vma)
 	if (!creds)
 		return -ENOMEM;
 
-	/* this might be deferred to mmap's writepage */
+	/* this might be deferred to mmap's writepages */
 	willwrite = ((vma->vm_flags | VM_SHARED | VM_WRITE) == vma->vm_flags);
 
 	/*
-	 * File systems which do not implement ->writepage may use
+	 * File systems which do not implement ->writepages may use
 	 * generic_file_readonly_mmap as their ->mmap op.  If you call
 	 * generic_file_readonly_mmap with VM_WRITE, you'd get an -EINVAL.
 	 * But we cannot call the lower ->mmap op, so we can't tell that
 	 * writeable mappings won't work.  Therefore, our only choice is to
-	 * check if the lower file system supports the ->writepage, and if
+	 * check if the lower file system supports the ->writepages, and if
 	 * not, return EINVAL (the same error that
 	 * generic_file_readonly_mmap returns in that case).
 	 */
 	lower_file = esdfs_lower_file(file);
-	if (willwrite && !lower_file->f_mapping->a_ops->writepage) {
+	if (willwrite && !lower_file->f_mapping->a_ops->writepages) {
 		err = -EINVAL;
 		esdfs_msg(file->f_mapping->host->i_sb, KERN_INFO,
 			"lower file system does not support writeable mmap\n");

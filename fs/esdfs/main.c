@@ -148,11 +148,6 @@ static int parse_perms(struct esdfs_perms *perms, char *args)
 	return 0;
 }
 
-static inline struct user_namespace *to_user_ns(struct ns_common *ns)
-{
-	return container_of(ns, struct user_namespace, ns);
-}
-
 static struct user_namespace *get_ns_from_fd(int fd)
 {
 	struct fd f = fdget(fd);

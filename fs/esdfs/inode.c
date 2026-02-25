@@ -130,8 +130,8 @@ out:
 	return err;
 }
 
-static int esdfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
-		       struct dentry *dentry, umode_t mode)
+static struct dentry *esdfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+                                  struct dentry *dentry, umode_t mode)
 {
 	int err;
 	struct dentry *lower_dentry;
@@ -142,11 +142,11 @@ static int esdfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
 			esdfs_override_creds(ESDFS_SB(dir->i_sb),
 					ESDFS_I(dir), &mask);
 	if (!creds)
-		return -ENOMEM;
+		return ERR_PTR(-ENOMEM);
 
 	if (test_opt(ESDFS_SB(dir->i_sb), ACCESS_DISABLE)) {
 		esdfs_revert_creds(creds, NULL);
-		return -ENOENT;
+		return ERR_PTR(-ENOENT);
 	}
 
 	esdfs_get_lower_path(dentry, &lower_path);
@@ -182,7 +182,7 @@ unlock_lower_parent:
 out:
 	esdfs_put_lower_path(dentry, &lower_path);
 	esdfs_revert_creds(creds, &mask);
-	return err;
+	return err ? ERR_PTR(err) : NULL;
 }
 
 static int esdfs_rmdir(struct inode *dir, struct dentry *dentry)

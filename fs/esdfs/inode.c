@@ -303,11 +303,10 @@ static int esdfs_rename(struct mnt_idmap *idmap,
 		goto out;
 	}
 
-	rd.old_mnt_idmap = idmap;
-	rd.old_parent = lower_old_dir_dentry->d_inode;
+	rd.mnt_idmap = idmap;
+	rd.old_parent = lower_old_dir_dentry;
 	rd.old_dentry = lower_old_dentry;
-	rd.new_mnt_idmap = idmap;
-	rd.new_parent = lower_new_dir_dentry->d_inode;
+	rd.new_parent = lower_new_dir_dentry;
 	rd.new_dentry = lower_new_dentry;
 	rd.flags = flags;
  

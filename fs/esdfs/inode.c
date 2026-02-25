@@ -134,6 +134,7 @@ static struct dentry *esdfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
                                   struct dentry *dentry, umode_t mode)
 {
 	int err;
+	struct dentry *lower_res;
 	struct dentry *lower_dentry;
 	struct dentry *lower_parent_dentry = NULL;
 	struct path lower_path;
@@ -155,10 +156,13 @@ static struct dentry *esdfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
 
 	mode |= S_IFDIR;
 	esdfs_set_lower_mode(ESDFS_SB(dir->i_sb), ESDFS_I(dir), &mode);
-	err = vfs_mkdir(idmap, lower_parent_dentry->d_inode, lower_dentry,
-			mode);
-	if (err)
-		goto unlock_lower_parent;
+	lower_res = vfs_mkdir(idmap, lower_parent_dentry->d_inode, lower_dentry, mode);
+    if (IS_ERR(lower_res)) {
+        err = PTR_ERR(lower_res);
+        goto unlock_lower_parent;
+    } else if (lower_res) {
+        dput(lower_res); /* Drop the reference if the kernel instantiated a specific dentry */
+    }
 
 	err = esdfs_interpose(dentry, dir->i_sb, &lower_path,
 				ESDFS_I(dir)->userid);

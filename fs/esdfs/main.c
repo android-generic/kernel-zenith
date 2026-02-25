@@ -500,7 +500,7 @@ static int esdfs_read_super(struct super_block *sb, const char *dev_name,
 		err = -ENOMEM;
 		goto out_sput;
 	}
-	d_set_d_op(root_dentry, &esdfs_dops);
+	root_dentry->d_op = &esdfs_dops;
 
 	/* link the upper and lower dentries */
 	root_dentry->d_fsdata = NULL;

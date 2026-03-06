@@ -6839,7 +6839,7 @@ CONFIG_AGP_SIS=y
 CONFIG_AGP_VIA=y
 CONFIG_INTEL_GTT=y
 CONFIG_VGA_SWITCHEROO=y
-CONFIG_DRM=m
+CONFIG_DRM=y
 
 #
 # DRM debugging options
@@ -6900,8 +6900,8 @@ CONFIG_DRM_SCHED=m
 #
 # Drivers for system framebuffers
 #
-CONFIG_DRM_SYSFB_HELPER=m
-CONFIG_DRM_SIMPLEDRM=m
+CONFIG_DRM_SYSFB_HELPER=y
+CONFIG_DRM_SIMPLEDRM=y
 # end of Drivers for system framebuffers
 
 #
@@ -7249,8 +7249,8 @@ CONFIG_FB_SVGALIB=m
 # CONFIG_FB_ARC is not set
 # CONFIG_FB_ASILIANT is not set
 # CONFIG_FB_IMSTT is not set
-CONFIG_FB_VGA16=m
-CONFIG_FB_UVESA=m
+# CONFIG_FB_VGA16 is not set
+# CONFIG_FB_UVESA is not set
 CONFIG_FB_VESA=y
 CONFIG_FB_EFI=y
 # CONFIG_FB_N411 is not set

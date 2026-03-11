@@ -44,7 +44,6 @@
 #include "clk_mgr.h"
 #include "dc_state_priv.h"
 #include "dc_stream_priv.h"
-#include "modules/inc/mod_info_packet.h"
 
 #include "virtual/virtual_link_hwss.h"
 #include "link/hwss/link_hwss_dio.h"
@@ -4417,6 +4416,7 @@ static void set_avi_info_frame(
 	unsigned int vic = pipe_ctx->stream->timing.vic;
 	unsigned int rid = pipe_ctx->stream->timing.rid;
 	unsigned int fr_ind = pipe_ctx->stream->timing.fr_index;
+	enum dc_timing_3d_format format;
 
 	if (stream->avi_infopacket.valid) {
 		*info_packet = stream->avi_infopacket;
@@ -4570,8 +4570,9 @@ static void set_avi_info_frame(
 	///VIC
 	if (pipe_ctx->stream->timing.hdmi_vic != 0)
 		vic = 0;
+	format = stream->timing.timing_3d_format;
 	/*todo, add 3DStereo support*/
-	if (!is_hdmi_vic_mode(pipe_ctx->stream)) {
+	if (format != TIMING_3D_FORMAT_NONE) {
 		// Based on HDMI specs hdmi vic needs to be converted to cea vic when 3D is enabled
 		switch (pipe_ctx->stream->timing.hdmi_vic) {
 		case 1:

@@ -91,6 +91,15 @@ void *bpf_internal_load_pointer_neg_helper(const struct sk_buff *skb, int k, uns
 	return NULL;
 }
 
+/*
+ * Android uses __PAGE_SIZE for larger than 4KB base page size emulation
+ * on x86_64. Undef this to avoid conflicts with bpf core's usage of
+ * __PAGE_SIZE in this compilation unit.
+ */
+#ifdef __PAGE_SIZE
+#undef __PAGE_SIZE
+#endif
+
 /* tell bpf programs that include vmlinux.h kernel's PAGE_SIZE */
 enum page_size_enum {
 	__PAGE_SIZE = PAGE_SIZE
@@ -713,8 +722,8 @@ static struct bpf_ksym *bpf_ksym_find(unsigned long addr)
 	return n ? container_of(n, struct bpf_ksym, tnode) : NULL;
 }
 
-int __bpf_address_lookup(unsigned long addr, unsigned long *size,
-				 unsigned long *off, char *sym)
+int bpf_address_lookup(unsigned long addr, unsigned long *size,
+		       unsigned long *off, char *sym)
 {
 	struct bpf_ksym *ksym;
 	int ret = 0;

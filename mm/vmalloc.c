@@ -490,12 +490,14 @@ void __vunmap_range_noflush(unsigned long start, unsigned long end)
 	if (mask & ARCH_PAGE_TABLE_SYNC_MASK)
 		arch_sync_kernel_mappings(start, end);
 }
+EXPORT_SYMBOL_GPL(__vunmap_range_noflush);
 
 void vunmap_range_noflush(unsigned long start, unsigned long end)
 {
 	kmsan_vunmap_range_noflush(start, end);
 	__vunmap_range_noflush(start, end);
 }
+EXPORT_SYMBOL_GPL(vunmap_range_noflush);
 
 /**
  * vunmap_range - unmap kernel virtual addresses
@@ -2090,6 +2092,7 @@ retry:
 		vm->addr = (void *)va->va_start;
 		vm->size = va_size(va);
 		va->vm = vm;
+		trace_android_vh_save_vmalloc_stack(va_flags, vm);
 	}
 
 	vn = addr_to_node(va->va_start);

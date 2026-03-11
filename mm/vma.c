@@ -4,7 +4,12 @@
  * VMA-specific functions.
  */
 
+#include <linux/pgsize_migration.h>
+
 #include "vma_internal.h"
+
+#include <linux/page_size_compat.h>
+
 #include "vma.h"
 #undef CREATE_TRACE_POINTS
 #include <trace/hooks/mm.h>
@@ -99,6 +104,8 @@ static inline bool is_mergeable_vma(struct vma_merge_struct *vmg, bool merge_nex
 	if (!is_mergeable_vm_userfaultfd_ctx(vma, vmg->uffd_ctx))
 		return false;
 	if (!anon_vma_name_eq(anon_vma_name(vma), vmg->anon_name))
+		return false;
+	if (!is_mergable_pad_vma(vma, vmg->vm_flags))
 		return false;
 	return true;
 }
@@ -579,6 +586,7 @@ __split_vma(struct vma_iterator *vmi, struct vm_area_struct *vma,
 	else
 		vma_prev(vmi);
 
+	split_pad_vma(vma, new, addr, new_below);
 	return 0;
 
 out_free_mpol:
@@ -2888,7 +2896,7 @@ unsigned long unmapped_area(struct vm_unmapped_area_info *info)
 	VMA_ITERATOR(vmi, current->mm, 0);
 
 	/* Adjust search length to account for worst case alignment overhead */
-	length = info->length + info->align_mask + info->start_gap;
+	length = __PAGE_SIZE_ROUND_UP_ADJ(info->length + info->align_mask + info->start_gap);
 	if (length < info->length)
 		return -ENOMEM;
 
@@ -2924,7 +2932,7 @@ retry:
 		}
 	}
 
-	return gap;
+	return __PAGE_ALIGN(gap);
 }
 
 /**
@@ -2945,7 +2953,7 @@ unsigned long unmapped_area_topdown(struct vm_unmapped_area_info *info)
 	VMA_ITERATOR(vmi, current->mm, 0);
 
 	/* Adjust search length to account for worst case alignment overhead */
-	length = info->length + info->align_mask + info->start_gap;
+	length = __PAGE_SIZE_ROUND_UP_ADJ(info->length + info->align_mask + info->start_gap);
 	if (length < info->length)
 		return -ENOMEM;
 
@@ -2976,7 +2984,7 @@ retry:
 		}
 	}
 
-	return gap;
+	return __PAGE_ALIGN(gap);
 }
 
 /*
@@ -3121,7 +3129,7 @@ int expand_downwards(struct vm_area_struct *vma, unsigned long address)
 
 	mmap_assert_write_locked(mm);
 
-	address &= PAGE_MASK;
+	address &= __PAGE_MASK;
 	if (address < mmap_min_addr || address < FIRST_USER_ADDRESS)
 		return -EPERM;
 

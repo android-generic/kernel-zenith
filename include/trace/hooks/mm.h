@@ -42,6 +42,9 @@ DECLARE_RESTRICTED_HOOK(android_rvh_try_alloc_pages_gfp,
 			TP_PROTO(struct page **page, unsigned int order,
 				gfp_t gfp, enum zone_type highest_zoneidx),
 			TP_ARGS(page, order, gfp, highest_zoneidx), 1);
+DECLARE_RESTRICTED_HOOK(android_rvh_swap_bio_charge,
+			TP_PROTO(struct bio *bio),
+			TP_ARGS(bio), 1);
 DECLARE_RESTRICTED_HOOK(android_rvh_bitmap_find_best_next_area,
 		TP_PROTO(unsigned long *bitmap,
 			unsigned long bitmap_maxno,
@@ -415,6 +418,44 @@ DECLARE_HOOK(android_vh_calc_alloc_flags,
 DECLARE_HOOK(android_vh_task_mem,
 	TP_PROTO(struct seq_file *m, struct mm_struct *mm),
 	TP_ARGS(m, mm));
+DECLARE_HOOK(android_vh_mem_cgroup_charge,
+	TP_PROTO(struct folio *folio, struct mem_cgroup **memcg),
+	TP_ARGS(folio, memcg));
+DECLARE_HOOK(android_vh_filemap_add_folio,
+	TP_PROTO(struct address_space *mapping, struct folio *folio,
+		pgoff_t index),
+	TP_ARGS(mapping, folio, index));
+DECLARE_HOOK(android_vh_folio_add_file_rmap,
+	TP_PROTO(struct folio *folio, struct page *page, int nr_pages,
+		 int level),
+	TP_ARGS(folio, page, nr_pages, level));
+DECLARE_HOOK(android_vh_folio_remove_rmap,
+	TP_PROTO(struct folio *folio, struct page *page, int nr_pages,
+		 int level),
+	TP_ARGS(folio, page, nr_pages, level));
+DECLARE_HOOK(android_vh_folios_put_refs_direct_free_extent,
+	TP_PROTO(struct folio *folio, unsigned int nr_refs,
+		 struct lruvec **lruvec, unsigned long flags, bool *direct_free),
+	TP_ARGS(folio, nr_refs, lruvec, flags, direct_free));
+DECLARE_HOOK(android_vh_free_pages_and_swap_cache,
+	TP_PROTO(struct folio *folio),
+	TP_ARGS(folio));
+DECLARE_HOOK(android_vh_do_anonymous_page,
+	TP_PROTO(struct vm_area_struct *vma, struct folio *folio),
+	TP_ARGS(vma, folio));
+DECLARE_HOOK(android_vh_do_swap_page,
+	TP_PROTO(struct folio *folio, pte_t *pte, struct vm_fault *vmf,
+		swp_entry_t entry),
+	TP_ARGS(folio, pte, vmf, entry));
+DECLARE_HOOK(android_vh_do_wp_page,
+	TP_PROTO(struct folio *folio),
+	TP_ARGS(folio));
+DECLARE_HOOK(android_vh_shmem_swapin_folio,
+	TP_PROTO(struct folio *folio),
+	TP_ARGS(folio));
+DECLARE_HOOK(android_vh_uprobes_uprobe_write,
+	TP_PROTO(struct folio *new_folio, struct folio *old_folio),
+	TP_ARGS(new_folio, old_folio));
 #endif /* _TRACE_HOOK_MM_H */
 
 /* This part must be outside protection */

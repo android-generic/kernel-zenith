@@ -68,6 +68,7 @@
 #include <linux/miscdevice.h>
 #include <linux/of_device.h>
 #include <linux/pci.h>
+#include <linux/page_size_compat.h>
 #include <linux/phy.h>
 #include <linux/pid_namespace.h>
 #include <linux/platform_device.h>
@@ -122,7 +123,7 @@ const vm_flags_t RUST_CONST_HELPER_VM_MERGEABLE = VM_MERGEABLE;
 #include "../../drivers/android/binder/page_range_helper.h"
 #endif
 
-#ifdef CONFIG_ASHMEM_RUST
+#ifdef CONFIG_ASHMEM
 #include "../../drivers/staging/android/ashmem.h"
 const size_t RUST_CONST_HELPER_ASHMEM_NAME_PREFIX_LEN = ASHMEM_NAME_PREFIX_LEN;
 const size_t RUST_CONST_HELPER_ASHMEM_FULL_NAME_LEN = ASHMEM_FULL_NAME_LEN;

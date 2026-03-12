@@ -13,6 +13,7 @@
 #include "trace.h"
 #include "../x86.h"
 #include "../lapic.h"
+#include "pkvm_iommu.h"
 
 /*
  * Needed by kvm_spurious_fault() which is a generic fault function for the
@@ -163,6 +164,7 @@ static int pkvm_vm_init(phys_addr_t host_kvm_pa, phys_addr_t pkvm_vm_pa,
 		kvm->arch.disabled_quirks = (kvm_caps.inapplicable_quirks |
 					     pkvm_vm->shared_kvm->arch.disabled_quirks) &
 					    kvm_caps.supported_quirks;
+	kvm->arch.apic_bus_cycle_ns = APIC_BUS_CYCLE_NS_DEFAULT;
 	kvm->arch.pkvm.pvmfw_load_addr = INVALID_GPA;
 
 	pkvm_spin_lock_init(&pkvm_vm->lock);
@@ -462,6 +464,8 @@ static int __vcpu_create(struct kvm *kvm, struct kvm_vcpu *vcpu, struct fpstate 
 		kvm->arch.notify_window = pkvm_vm->shared_kvm->arch.notify_window;
 		kvm->arch.notify_vmexit_flags = pkvm_vm->shared_kvm->arch.notify_vmexit_flags;
 	}
+	if (pkvm_vm->shared_kvm->arch.apic_bus_cycle_ns)
+		kvm->arch.apic_bus_cycle_ns = pkvm_vm->shared_kvm->arch.apic_bus_cycle_ns;
 	if (!pkvm_is_protected_vm(kvm))
 		kvm->arch.disabled_exits = pkvm_vm->shared_kvm->arch.disabled_exits;
 
@@ -1800,7 +1804,8 @@ static int pkvm_vcpu_handle_host_hypercall(struct kvm_vcpu *hvcpu, enum pkvm_hc 
 void pkvm_handle_host_hypercall(struct kvm_vcpu *vcpu)
 {
 	enum pkvm_hc hc = pkvm_hc(vcpu);
-	union pkvm_hc_data in, out;
+	/* Zero 'out' to prevent leaking stack data on error */
+	union pkvm_hc_data in, out = {0};
 	int ret = 0;
 
 	pkvm_hc_get_input(vcpu, hc, &in);
@@ -1875,6 +1880,62 @@ void pkvm_handle_host_hypercall(struct kvm_vcpu *vcpu)
 		ret = pkvm_vm_mmu_age(pkvm_hc_input1(vcpu), pkvm_hc_input2(vcpu),
 				      pkvm_hc_input3(vcpu), pkvm_hc_input4(vcpu));
 		break;
+#ifdef CONFIG_PKVM_INTEL
+	case __pkvm__iommu_mmio_read:
+		ret = pkvm_iommu_mmio_read(pkvm_hc_input1(vcpu),
+					   pkvm_hc_input2(vcpu),
+					   &out.iommu_mmio_read.val);
+		break;
+	case __pkvm__iommu_mmio_write:
+		ret = pkvm_iommu_mmio_write(pkvm_hc_input1(vcpu),
+					    pkvm_hc_input2(vcpu),
+					    pkvm_hc_input3(vcpu));
+		break;
+	case __pkvm__iommu_iec_flush:
+		ret = pkvm_iommu_iec_flush(pkvm_hc_input1(vcpu),
+					   pkvm_hc_input2(vcpu),
+					   pkvm_hc_input3(vcpu),
+					   pkvm_hc_input4(vcpu));
+		break;
+	case __pkvm__iommu_clear_ce:
+		ret = pkvm_iommu_clear_ce(&in.iommu_clear_ce.data);
+		break;
+	case __pkvm__iommu_set_lm_ce:
+		ret = pkvm_iommu_set_lm_ce(&in.iommu_set_lm_ce.in,
+					   &out.iommu_set_lm_ce.out);
+		break;
+	case __pkvm__iommu_set_sm_ce:
+		ret = pkvm_iommu_set_sm_ce(&in.iommu_set_sm_ce.in,
+					   &out.iommu_set_sm_ce.out);
+		break;
+	case __pkvm__iommu_pasid_setup_fl:
+		ret = pkvm_iommu_pasid_setup_fl(&in.iommu_pasid_setup_fl.in,
+						&out.iommu_pasid_setup_fl.out);
+		break;
+	case __pkvm__iommu_pasid_setup_sl:
+		ret = pkvm_iommu_pasid_setup_sl(&in.iommu_pasid_setup_sl.in,
+						&out.iommu_pasid_setup_sl.out);
+		break;
+	case __pkvm__iommu_pasid_teardown:
+		ret = pkvm_iommu_pasid_teardown(&in.iommu_pasid_teardown.data);
+		break;
+	case __pkvm__iommu_alloc_domain:
+		ret = pkvm_iommu_alloc_domain(&in.iommu_alloc_domain.data);
+		break;
+	case __pkvm__iommu_free_domain:
+		ret = pkvm_iommu_free_domain(pkvm_hc_input1(vcpu),
+					     &out.iommu_free_domain.memcache);
+		break;
+	case __pkvm__iommu_domain_map:
+		ret = pkvm_iommu_domain_map(&in.iommu_domain_map.in,
+					    &out.iommu_domain_map.out);
+		break;
+	case __pkvm__iommu_domain_unmap:
+		ret = pkvm_iommu_domain_unmap(pkvm_hc_input1(vcpu),
+					      pkvm_hc_input2(vcpu),
+					      pkvm_hc_input3(vcpu));
+		break;
+#endif
 	default:
 		ret = pkvm_vcpu_handle_host_hypercall(vcpu, hc, &in, &out);
 		break;

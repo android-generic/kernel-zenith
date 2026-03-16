@@ -148,10 +148,11 @@ out:
 }
 #endif
 
-static int esdfs_mmap(struct file *file, struct vm_area_struct *vma)
+static int esdfs_mmap_prepare(struct vm_area_desc *desc)
 {
 	int err = 0;
 	bool willwrite;
+	struct file *file = desc->file;
 	struct file *lower_file;
 	const struct vm_operations_struct *saved_vm_ops = NULL;
 	struct esdfs_sb_info *sbi = ESDFS_SB(file->f_path.dentry->d_sb);
@@ -161,7 +162,7 @@ static int esdfs_mmap(struct file *file, struct vm_area_struct *vma)
 		return -ENOMEM;
 
 	/* this might be deferred to mmap's writepages */
-	willwrite = ((vma->vm_flags | VM_SHARED | VM_WRITE) == vma->vm_flags);
+	willwrite = ((desc->vm_flags | VM_SHARED | VM_WRITE) == desc->vm_flags);
 
 	/*
 	 * File systems which do not implement ->writepages may use
@@ -182,34 +183,38 @@ static int esdfs_mmap(struct file *file, struct vm_area_struct *vma)
 	}
 
 	/*
-	 * find and save lower vm_ops.
-	 *
-	 * XXX: the VFS should have a cleaner way of finding the lower vm_ops
+	 * Bypass the const qualifier temporarily to allow the lower
+	 * file system to properly initialize the VMA descriptor.
 	 */
-	if (!ESDFS_F(file)->lower_vm_ops) {
-		err = lower_file->f_op->mmap(lower_file, vma);
-		if (err) {
-			esdfs_msg(file->f_mapping->host->i_sb, KERN_ERR,
-				"lower mmap failed %d\n", err);
-			goto out;
-		}
-		saved_vm_ops = vma->vm_ops; /* save: came from lower ->mmap */
-	}
+	*(struct file **)&desc->file = lower_file;
+	err = lower_file->f_op->mmap_prepare(desc);
+	*(struct file **)&desc->file = file;
 
-	/*
-	 * Next 3 lines are all I need from generic_file_mmap.  I definitely
-	 * don't want its test for ->readpage which returns -ENOEXEC.
-	 */
+	if (err)
+		goto out;
+
+	saved_vm_ops = desc->vm_ops;
 	file_accessed(file);
-	vma->vm_ops = &esdfs_vm_ops;
 
+	/* Hook esdfs's own vm_ops and a_ops to intercept page faults */
+	desc->vm_ops = &esdfs_vm_ops;
 	file->f_mapping->a_ops = &esdfs_aops; /* set our aops */
+
 	if (!ESDFS_F(file)->lower_vm_ops) /* save for our ->fault */
 		ESDFS_F(file)->lower_vm_ops = saved_vm_ops;
 
-	vma->vm_private_data = file;
+	/* Let the kernel manage the refcount for the lower file (ext4/f2fs) */
 	get_file(lower_file);
-	vma->vm_file = lower_file;
+	desc->vm_file = lower_file;
+
+	/*
+	 * Fix Use-After-Free:
+	 * Increment the refcount of the esdfs file so it is not freed when
+	 * the process closes the fd. The esdfs_vm_close() function in mmap.c
+	 * will call fput() to safely release it later.
+	 */
+	get_file(file); 
+	desc->private_data = file;
 out:
 	esdfs_revert_creds(creds, NULL);
 	return err;
@@ -442,7 +447,7 @@ const struct file_operations esdfs_main_fops = {
 #ifdef CONFIG_COMPAT
 	.compat_ioctl	= esdfs_compat_ioctl,
 #endif
-	.mmap		= esdfs_mmap,
+	.mmap_prepare	= esdfs_mmap_prepare,
 	.open		= esdfs_open,
 	.flush		= esdfs_flush,
 	.release	= esdfs_file_release,

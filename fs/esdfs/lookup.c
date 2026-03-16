@@ -194,11 +194,13 @@ struct inode *esdfs_iget(struct super_block *sb, struct inode *lower_inode,
 	else
 		inode->i_op = &esdfs_main_iops;
 
-	/* use different set of file ops for directories */
+	/* use different set of file ops for directories and regular files */
 	if (S_ISDIR(lower_inode->i_mode))
 		inode->i_fop = &esdfs_dir_fops;
-	else
+	else if (S_ISREG(lower_inode->i_mode))
 		inode->i_fop = &esdfs_main_fops;
+	else
+		inode->i_fop = NULL; /* for symlinks & special files */
 
 	inode->i_mapping->a_ops = &esdfs_aops;
 

@@ -59,7 +59,10 @@
 
 #define AMDGPU_HDR_MULT_DEFAULT (0x100000000LL)
 
-#define AMDGPU_DM_HDMI_HPD_DEBOUNCE_MS 1500
+/*
+ * Maximum HDMI HPD debounce delay in milliseconds
+ */
+#define AMDGPU_DM_MAX_HDMI_HPD_DEBOUNCE_MS 5000
 /*
 #include "include/amdgpu_dal_power_if.h"
 #include "amdgpu_dm_irq.h"
@@ -825,6 +828,9 @@ struct amdgpu_dm_connector {
 	unsigned int hdmi_hpd_debounce_delay_ms;
 	struct delayed_work hdmi_hpd_debounce_work;
 	struct dc_sink *hdmi_prev_sink;
+
+	/* HDMI ALLM */
+	bool hdmi_allm_capable;
 };
 
 static inline void amdgpu_dm_set_mst_status(uint8_t *status,
@@ -998,6 +1004,7 @@ struct dm_connector_state {
 	uint8_t underscan_hborder;
 	bool underscan_enable;
 	bool freesync_capable;
+	bool freesync_on_desktop_capable;
 	bool update_hdcp;
 	uint8_t abm_level;
 	int vcpi_slots;

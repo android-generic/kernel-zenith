@@ -23,13 +23,12 @@
  *
  */
 
-#include "amdgpu.h"
-#include "core_types.h"
-#include "dc.h"
-#include "dc_types.h"
-#include "mod_freesync.h"
 #include "mod_info_packet.h"
+#include "core_types.h"
+#include "dc_types.h"
 #include "mod_shared.h"
+#include "mod_freesync.h"
+#include "dc.h"
 
 enum vsc_packet_revision {
 	vsc_packet_undefined = 0,
@@ -52,11 +51,14 @@ enum vsc_packet_revision {
 #define HF_VSIF_3D_BIT   0
 #define HF_VSIF_ALLM_BIT 1
 
-enum allm_trigger_mode {
-	ALLM_MODE_DISABLED        = 0,
-	ALLM_MODE_ENABLED_DYNAMIC = 1,
-	ALLM_MODE_ENABLED_FORCED  = 2,
-};
+// VTEM Byte Offset
+#define VTEM_PB0		0
+#define VTEM_PB1		1
+#define VTEM_PB2		2
+#define VTEM_PB3		3
+#define VTEM_PB4		4
+#define VTEM_PB5		5
+#define VTEM_PB6		6
 
 #define VTEM_ORG_ID          1
 #define VTEM_DATA_SET_TAG    1
@@ -430,33 +432,8 @@ void mod_build_vsc_infopacket(const struct dc_stream_state *stream,
 	}
 }
 
-static bool is_hdmi_allm_mode(const struct dc_stream_state *stream)
+static bool is_hdmi_vic_mode(const struct dc_stream_state *stream)
 {
-	/* Sink doesn't expose ALLM support in edid */
-	if (!stream->link->local_sink ||
-	    !stream->link->local_sink->edid_caps.allm)
-		return false;
-
-	switch (amdgpu_allm_mode) {
-	case ALLM_MODE_DISABLED:
-		return false;
-
-	case ALLM_MODE_ENABLED_DYNAMIC:
-		break;
-
-	case ALLM_MODE_ENABLED_FORCED:
-		return true;
-	}
-
-	return stream->content_type == DISPLAY_CONTENT_TYPE_GAME ||
-	       stream->vrr_active_variable;
-}
-
-bool is_hdmi_vic_mode(const struct dc_stream_state *stream)
-{
-	bool allm = is_hdmi_allm_mode(stream);
-	bool stereo = stream->view_format != VIEW_3D_FORMAT_NONE;
-
 	if (stream->timing.hdmi_vic == 0)
 		return false;
 
@@ -464,7 +441,11 @@ bool is_hdmi_vic_mode(const struct dc_stream_state *stream)
 	    stream->timing.v_total < 2160)
 		return false;
 
-	if (stereo || allm)
+	/* 3D/ALLM forces HDMI VIC -> CTA VIC translation */
+	if (stream->view_format != VIEW_3D_FORMAT_NONE)
+		return false;
+
+	if (stream->hdmi_allm_active)
 		return false;
 
 	return true;
@@ -493,7 +474,7 @@ void mod_build_hf_vsif_infopacket(const struct dc_stream_state *stream,
 
 		info_packet->valid = false;
 
-		allm = is_hdmi_allm_mode(stream);
+		allm = stream->hdmi_allm_active;
 		format = stream->view_format == VIEW_3D_FORMAT_NONE ?
 			 TIMING_3D_FORMAT_NONE :
 			 stream->timing.timing_3d_format;
@@ -506,16 +487,16 @@ void mod_build_hf_vsif_infopacket(const struct dc_stream_state *stream,
 		if (allm)
 			oui = HDMI_FORUM_IEEE_OUI;
 
-		info_packet->sb[1] = oui & 0xff;
-		info_packet->sb[2] = (oui >> 8) & 0xff;
-		info_packet->sb[3] = (oui >> 16) & 0xff;
+		info_packet->sb[1] = oui & 0xFF;
+		info_packet->sb[2] = (oui >> 8) & 0xFF;
+		info_packet->sb[3] = (oui >> 16) & 0xFF;
 
 		if (oui == HDMI_FORUM_IEEE_OUI) {
 			offset = 2;
 			length += 2;
 			info_packet->sb[4] = HF_VSIF_VERSION;
 			info_packet->sb[5] = stereo << HF_VSIF_3D_BIT;
-			info_packet->sb[5] = allm << HF_VSIF_ALLM_BIT;
+			info_packet->sb[5] |= allm << HF_VSIF_ALLM_BIT;
 		}
 
 		if (stereo) {
@@ -592,15 +573,18 @@ static void build_vtem_infopacket_data(const struct dc_stream_state *stream,
 {
 	unsigned int hblank = 0;
 	unsigned int brr = 0;
-	bool hdmi_vic_mode = false;
 	bool vrr_active = false;
 	bool rb = false;
 
-	hdmi_vic_mode = is_hdmi_vic_mode(stream);
-
-	if (amdgpu_hdmi_vrr_desktop_mode) {
-		vrr_active = vrr->state != VRR_STATE_UNSUPPORTED &&
-			     vrr->state != VRR_STATE_DISABLED;
+	/*
+	 * Enables FreeSync-like behavior by keeping HDMI VRR signalling active
+	 * in fixed refresh rate conditions like normal desktop work/web browsing.
+	 * Functinally behaves like non-VRR mode by keeping the actual refresh
+	 * rate fixed.
+	 */
+	if (stream->freesync_on_desktop) {
+		vrr_active = vrr->state != VRR_STATE_DISABLED &&
+			     vrr->state != VRR_STATE_UNSUPPORTED;
 	} else {
 		vrr_active = vrr->state == VRR_STATE_ACTIVE_VARIABLE ||
 			     vrr->state == VRR_STATE_ACTIVE_FIXED;
@@ -614,7 +598,7 @@ static void build_vtem_infopacket_data(const struct dc_stream_state *stream,
 	infopacket->sb[VTEM_MD2] = 0;
 	infopacket->sb[VTEM_MD3] = 0;
 
-	if (hdmi_vic_mode || !vrr_active)
+	if (!vrr_active || is_hdmi_vic_mode(stream))
 		return;
 	/*
 	 * In accordance with CVT 1.2 and CVT 2.1:
@@ -625,7 +609,7 @@ static void build_vtem_infopacket_data(const struct dc_stream_state *stream,
 	 */
 	hblank = stream->timing.h_total - stream->timing.h_addressable;
 	rb = (hblank >= 80 && hblank <= 200 && hblank % 8 == 0);
-	brr = mod_freesync_calc_nominal_field_rate(stream) / 1000000;
+	brr = div_u64(mod_freesync_calc_nominal_field_rate(stream), 1000000);
 
 	if (brr > VTEM_BRR_MAX) {
 		infopacket->valid = false;
@@ -634,7 +618,7 @@ static void build_vtem_infopacket_data(const struct dc_stream_state *stream,
 
 	infopacket->sb[VTEM_MD1] = (uint8_t) stream->timing.v_front_porch;
 	infopacket->sb[VTEM_MD2] = rb << VTEM_RB_BIT;
-	infopacket->sb[VTEM_MD2] |= (brr & VTEM_BRR_MASK_UPPER) >> 8;
+	infopacket->sb[VTEM_MD2] |= (brr >> 8) & VTEM_BRR_MASK_UPPER;
 	infopacket->sb[VTEM_MD3] = brr & VTEM_BRR_MASK_LOWER;
 }
 

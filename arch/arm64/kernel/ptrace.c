@@ -45,6 +45,8 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/syscalls.h>
 
+EXPORT_TRACEPOINT_SYMBOL_GPL(sys_exit);
+
 struct pt_regs_offset {
 	const char *name;
 	int offset;
@@ -1457,6 +1459,9 @@ static int poe_get(struct task_struct *target,
 {
 	if (!system_supports_poe())
 		return -EINVAL;
+
+	if (target == current)
+		current->thread.por_el0 = read_sysreg_s(SYS_POR_EL0);
 
 	return membuf_write(&to, &target->thread.por_el0,
 			    sizeof(target->thread.por_el0));

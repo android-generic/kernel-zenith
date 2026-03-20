@@ -59,13 +59,33 @@ static inline bool kvm_pkvm_ext_allowed(struct kvm *kvm, long ext)
 	}
 }
 
+static inline bool __ioctl_is_smccc_filter(unsigned int ioctl, void __user *argp)
+{
+	struct kvm_device_attr attr;
+
+	switch (ioctl) {
+	case KVM_SET_DEVICE_ATTR:
+	case KVM_GET_DEVICE_ATTR:
+	case KVM_HAS_DEVICE_ATTR:
+		break;
+	default:
+		return false;
+	}
+
+	if (copy_from_user(&attr, argp, sizeof(attr)))
+		return false;
+
+	return attr.group == KVM_ARM_VM_SMCCC_CTRL &&
+	       attr.attr == KVM_ARM_VM_SMCCC_FILTER;
+}
+
 /*
  * Check whether the KVM VM IOCTL is allowed in pKVM.
  *
  * Certain features are allowed only for non-protected VMs in pKVM, which is why
  * this takes the VM (kvm) as a parameter.
  */
-static inline bool kvm_pkvm_ioctl_allowed(struct kvm *kvm, unsigned int ioctl)
+static inline bool kvm_pkvm_ioctl_allowed(struct kvm *kvm, unsigned int ioctl, void __user *argp)
 {
 	long ext;
 	int r;
@@ -75,7 +95,10 @@ static inline bool kvm_pkvm_ioctl_allowed(struct kvm *kvm, unsigned int ioctl)
 	if (WARN_ON_ONCE(r < 0))
 		return false;
 
-	return kvm_pkvm_ext_allowed(kvm, ext);
+	if (kvm_pkvm_ext_allowed(kvm, ext))
+		return true;
+
+	return __ioctl_is_smccc_filter(ioctl, argp);
 }
 
 static inline unsigned long pvm_supported_vcpu_features(struct kvm *kvm)
@@ -120,6 +143,9 @@ struct pkvm_moveable_reg {
 #define PKVM_NR_MOVEABLE_REGS 512
 extern struct pkvm_moveable_reg kvm_nvhe_sym(pkvm_moveable_regs)[];
 extern unsigned int kvm_nvhe_sym(pkvm_moveable_regs_nr);
+
+extern phys_addr_t kvm_nvhe_sym(host_s2_cma_base);
+extern phys_addr_t kvm_nvhe_sym(host_s2_cma_size);
 
 extern struct memblock_region kvm_nvhe_sym(hyp_memory)[];
 extern unsigned int kvm_nvhe_sym(hyp_memblock_nr);
@@ -204,18 +230,17 @@ static inline unsigned long hyp_s1_pgtable_pages(void)
 
 static inline unsigned long host_s2_pgtable_pages(void)
 {
-	unsigned long res;
-
 	/*
 	 * Include an extra 16 pages to safely upper-bound the worst case of
 	 * concatenated pgds.
 	 */
-	res = __hyp_pgtable_moveable_regs_pages() + 16;
+	return __hyp_pgtable_moveable_regs_pages() + 16;
+}
 
+static inline unsigned long host_s2_mmio_pgtable_pages(void)
+{
 	/* Allow 1 GiB for non-moveable regions */
-	res += __hyp_pgtable_max_pages(SZ_1G >> PAGE_SHIFT);
-
-	return res;
+	return __hyp_pgtable_max_pages(SZ_1G >> PAGE_SHIFT);
 }
 
 #ifdef CONFIG_NVHE_EL2_DEBUG
@@ -328,6 +353,12 @@ int __pkvm_handle_smccc_req(struct arm_smccc_res *res, void *arg);
 	} while (!__ret);						\
 	__ret;								\
 })
+
+#ifdef CONFIG_CMA
+int pkvm_host_stage2_topup(void);
+#else
+static inline int pkvm_host_stage2_topup(void) { return -EINVAL; }
+#endif
 
 enum pkvm_ptdump_ops {
 	PKVM_PTDUMP_GET_LEVEL,

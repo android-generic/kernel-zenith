@@ -186,9 +186,6 @@ retry:
 		if (!ecap_coherent(info->iommu->ecap))
 			clflush_cache_range(entries, VTD_PAGE_SIZE);
 
-		if (!ecap_coherent(info->iommu->ecap))
-			clflush_cache_range(entries, VTD_PAGE_SIZE);
-
 		/*
 		 * The pasid directory table entry won't be freed after
 		 * allocation. No worry about the race with free and
@@ -265,7 +262,7 @@ devtlb_invalidation_with_pasid(struct intel_iommu *iommu,
 		return;
 
 #ifndef __PKVM_HYP__
-	if (pci_dev_is_disconnected(to_pci_dev(dev)))
+	if (!pci_device_is_present(to_pci_dev(dev)))
 		return;
 #endif
 

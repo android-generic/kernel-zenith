@@ -271,6 +271,7 @@ static inline bool rwsem_read_trylock(struct rw_semaphore *sem, long *cntp)
 	trace_android_vh_rwsem_read_trylock_failed(sem, cntp, &ret);
 	if (ret) {
 		rwsem_set_reader_owned(sem);
+		trace_android_vh_rwsem_lock_acquired(sem);
 		return true;
 	}
 
@@ -1475,8 +1476,10 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
 
 	if (!ret) {
 		trace_android_vh_rwsem_read_trylock_failed(sem, NULL, &ret);
-		if (ret)
+		if (ret) {
 			rwsem_set_reader_owned(sem);
+			trace_android_vh_rwsem_lock_acquired(sem);
+		}
 	}
 
 	preempt_enable();

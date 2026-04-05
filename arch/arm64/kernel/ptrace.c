@@ -142,7 +142,7 @@ unsigned long regs_get_kernel_stack_nth(struct pt_regs *regs, unsigned int n)
 
 	addr += n;
 	if (regs_within_kernel_stack(regs, (unsigned long)addr))
-		return *addr;
+		return READ_ONCE_NOCHECK(*addr);
 	else
 		return 0;
 }
@@ -1452,6 +1452,9 @@ static int poe_get(struct task_struct *target,
 {
 	if (!system_supports_poe())
 		return -EINVAL;
+
+	if (target == current)
+		current->thread.por_el0 = read_sysreg_s(SYS_POR_EL0);
 
 	return membuf_write(&to, &target->thread.por_el0,
 			    sizeof(target->thread.por_el0));

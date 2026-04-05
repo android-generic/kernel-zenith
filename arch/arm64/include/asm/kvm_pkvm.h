@@ -413,7 +413,8 @@ static inline unsigned long pkvm_selftest_pages(void) { return 32; }
 static inline unsigned long pkvm_selftest_pages(void) { return 0; }
 #endif
 
-#define KVM_FFA_MBOX_NR_PAGES	1
+#define KVM_FFA_MBOX_NR_PAGES		1
+#define KVM_FFA_SPM_HANDLE_NR_PAGES	2
 
 /*
  * Maximum number of consitutents allowed in a descriptor. This number is
@@ -424,6 +425,7 @@ static inline unsigned long pkvm_selftest_pages(void) { return 0; }
 static inline unsigned long hyp_ffa_proxy_pages(void)
 {
 	size_t desc_max;
+	unsigned long num_pages;
 
 	/*
 	 * SG_MAX_SEGMENTS is supposed to bound the number of elements in an
@@ -446,7 +448,9 @@ static inline unsigned long hyp_ffa_proxy_pages(void)
 		   KVM_FFA_MAX_NR_CONSTITUENTS * sizeof(struct ffa_mem_region_addr_range);
 
 	/* Plus a page each for the hypervisor's RX and TX mailboxes. */
-	return (2 * KVM_FFA_MBOX_NR_PAGES) + DIV_ROUND_UP(desc_max, PAGE_SIZE);
+	num_pages = (2 * KVM_FFA_MBOX_NR_PAGES) + DIV_ROUND_UP(desc_max, PAGE_SIZE);
+
+	return num_pages;
 }
 
 static inline size_t pkvm_host_sve_state_size(void)
@@ -507,10 +511,6 @@ struct pkvm_ptdump_log_hdr {
 	/* The write index in the log page */
 	u64	w_index: 16;
 };
-
-int pkvm_call_hyp_nvhe_ppage(struct kvm_pinned_page *ppage,
-			     int (*call_hyp_nvhe)(u64, u64, u8, void*),
-			     void *args, bool unmap);
 
 struct pkvm_mapping {
 	struct rb_node node;

@@ -56,8 +56,6 @@ static struct hyp_trace_buffer {
 
 static size_t hyp_trace_buffer_size = 7 << 10;
 
-static bool hyp_trace_panic __read_mostly;
-
 /* Number of pages the ring-buffer requires to accommodate for size */
 #define NR_PAGES(size) \
 	((PAGE_ALIGN(size) >> PAGE_SHIFT) + 1)
@@ -177,11 +175,13 @@ static void hyp_clock_wait(struct hyp_trace_buffer *hyp_buffer)
 
 static int __get_reader_page(int cpu)
 {
-	/* we'd better no try to call the hyp if it has panic'ed */
-	if (hyp_trace_panic)
-		return 0;
+	int ret = kvm_call_hyp_nvhe(__pkvm_swap_reader_tracing, cpu);
 
-	return kvm_call_hyp_nvhe(__pkvm_swap_reader_tracing, cpu);
+	/* panic occured, hyp already fast-forwarded the reader page */
+	if (ret == -EBUSY)
+		ret = 0;
+
+	return ret;
 }
 
 static int __reset(int cpu)
@@ -758,6 +758,7 @@ hyp_trace_raw_read(struct file *file, char __user *ubuf,
 	struct ht_iterator *iter = (struct ht_iterator *)file->private_data;
 	size_t size;
 	int ret;
+	void *page_data;
 
 	if (iter->copy_leftover)
 		goto read;
@@ -786,7 +787,9 @@ read:
 	if (size > cnt)
 		size = cnt;
 
-	ret = copy_to_user(ubuf, iter->spare + PAGE_SIZE - size, size);
+	page_data = ring_buffer_read_page_data(
+		(struct buffer_data_read_page *)iter->spare);
+	ret = copy_to_user(ubuf, page_data + PAGE_SIZE - size, size);
 	if (ret == size)
 		return -EFAULT;
 
@@ -855,13 +858,10 @@ static int hyp_trace_open(struct inode *inode, struct file *file)
 {
 	int cpu = (s64)inode->i_private;
 
-	if (file->f_mode & FMODE_WRITE) {
+	if (file->f_mode & FMODE_WRITE)
 		hyp_trace_reset(cpu);
 
-		return 0;
-	}
-
-	return -EPERM;
+	return 0;
 }
 
 static ssize_t hyp_trace_write(struct file *filp, const char __user *ubuf,
@@ -948,7 +948,9 @@ static void hyp_trace_buffer_printk(struct hyp_trace_buffer *hyp_buffer)
 			return;
 
 		ht_iter->seq.buffer[ht_iter->seq.seq.len] = '\0';
-		printk("%s", ht_iter->seq.buffer);
+
+		if (!pr_emerg("%s", ht_iter->seq.buffer))
+			return;
 
 		ht_iter->seq.seq.len = 0;
 		ring_buffer_consume(hyp_buffer->trace_buffer, ht_iter->ent_cpu,
@@ -963,9 +965,6 @@ static int hyp_trace_panic_handler(struct notifier_block *self,
 	if (!hyp_trace_buffer_loaded(&hyp_trace_buffer) ||
 	    !hyp_trace_buffer.printk_iter)
 		return NOTIFY_DONE;
-
-	if (!strncmp("HYP panic:", v, 10))
-		hyp_trace_panic = true;
 
 	ring_buffer_poll_writer(hyp_trace_buffer.trace_buffer, RING_BUFFER_ALL_CPUS);
 	hyp_trace_buffer_printk(&hyp_trace_buffer);
@@ -1039,9 +1038,9 @@ int hyp_trace_init_tracefs(void)
 				    (void *)cpu, &hyp_trace_pipe_fops);
 
 		tracefs_create_file("trace_pipe_raw", TRACEFS_MODE_READ, per_cpu_dir,
-				    (void *)cpu, &hyp_trace_pipe_fops);
+				    (void *)cpu, &hyp_trace_raw_fops);
 
-		tracefs_create_file("trace", TRACEFS_MODE_READ, per_cpu_dir,
+		tracefs_create_file("trace", TRACEFS_MODE_WRITE, per_cpu_dir,
 				    (void *)cpu, &hyp_trace_fops);
 	}
 

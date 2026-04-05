@@ -51,6 +51,7 @@ void mte_sync_tags(pte_t pte, unsigned int nr_pages)
 	/* ensure the tags are visible before the PTE is set */
 	smp_wmb();
 }
+EXPORT_SYMBOL_GPL(mte_sync_tags);
 
 int memcmp_pages(struct page *page1, struct page *page2)
 {
@@ -428,7 +429,8 @@ static int __access_remote_tags(struct mm_struct *mm, unsigned long addr,
 			put_page(page);
 			break;
 		}
-		WARN_ON_ONCE(!page_mte_tagged(page));
+
+		WARN_ON_ONCE(!page_mte_tagged(page) && !is_zero_page(page));
 
 		/* limit access to the end of the page */
 		offset = offset_in_page(addr);

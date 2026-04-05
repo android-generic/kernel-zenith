@@ -35,9 +35,13 @@ static int pkvm_guest_iommu_alloc_id(void)
 	int i;
 
 	for (i = 0 ; i < ARRAY_SIZE(guest_domains) ; ++i) {
-		if (guest_domains[i] != ~0UL)
-			return ffz(guest_domains[i]) + i * BITS_PER_LONG +
+		if (guest_domains[i] != ~0UL) {
+			int domain_off = ffz(guest_domains[i]);
+
+			guest_domains[i] |= (1UL << domain_off);
+			return domain_off + i * BITS_PER_LONG +
 			       (KVM_IOMMU_MAX_DOMAINS >> 1);
+		}
 	}
 
 	return -EBUSY;
@@ -145,7 +149,10 @@ static bool pkvm_guest_iommu_alloc_domain(struct pkvm_hyp_vcpu *hyp_vcpu, u64 *e
 	guest_domain = hyp_alloc(sizeof(*guest_domain));
 	if (!guest_domain) {
 		BUG_ON(hyp_alloc_errno() != -ENOMEM);
-		req = pkvm_hyp_req_reserve(hyp_vcpu, REQ_MEM_DEST_HYP_ALLOC);
+		req = pkvm_hyp_req_reserve(hyp_vcpu, KVM_HYP_REQ_TYPE_MEM);
+		if (!req)
+			return false;
+		req->mem.dest = REQ_MEM_DEST_HYP_ALLOC;
 		req->mem.nr_pages = hyp_alloc_missing_donations();
 		req->mem.sz_alloc = PAGE_SIZE;
 		pkvm_pviommu_hyp_req(exit_code);

@@ -1250,6 +1250,10 @@ void dec_rt_tasks(struct sched_rt_entity *rt_se, struct rt_rq *rt_rq)
  */
 static inline bool move_entity(unsigned int flags)
 {
+	int move = 0;
+	trace_android_vh_move_entity(&move, flags);
+	if (move)
+		return true;
 	if ((flags & (DEQUEUE_SAVE | DEQUEUE_MOVE)) == DEQUEUE_SAVE)
 		return false;
 
@@ -1511,25 +1515,14 @@ enqueue_task_rt(struct rq *rq, struct task_struct *p, int flags)
 
 	enqueue_rt_entity(rt_se, flags);
 
-	/*
-	 * Current can't be pushed away. Selected is tied to current,
-	 * so don't push it either.
-	 */
-	if (task_current(rq, p) || task_current_donor(rq, p))
-		return;
-	/*
-	 * Pinned tasks can't be pushed.
-	 */
-	if (p->nr_cpus_allowed == 1)
-		return;
-
 	if (should_honor_rt_sync(rq, p, sync))
 		return;
 
 	if (task_is_blocked(p))
 		return;
 
-	enqueue_pushable_task(rq, p);
+	if (!task_current(rq, p) && p->nr_cpus_allowed > 1)
+		enqueue_pushable_task(rq, p);
 }
 
 static bool dequeue_task_rt(struct rq *rq, struct task_struct *p, int flags)
@@ -1575,7 +1568,7 @@ static void requeue_task_rt(struct rq *rq, struct task_struct *p, int head)
 
 static void yield_task_rt(struct rq *rq)
 {
-	requeue_task_rt(rq, rq->curr, 0);
+	requeue_task_rt(rq, rq->donor, 0);
 }
 
 #ifdef CONFIG_SMP
@@ -1805,6 +1798,7 @@ static inline void set_next_task_rt(struct rq *rq, struct task_struct *p, bool f
 	 */
 	if (rq->donor->sched_class != &rt_sched_class)
 		update_rt_rq_load_avg(rq_clock_pelt(rq), rq, 0);
+	trace_android_rvh_update_rt_rq_load_avg(rq_clock_pelt(rq), rq, p, 0);
 
 	rt_queue_push_tasks(rq);
 }
@@ -1865,6 +1859,7 @@ static void put_prev_task_rt(struct rq *rq, struct task_struct *p, struct task_s
 	update_curr_rt(rq);
 
 	update_rt_rq_load_avg(rq_clock_pelt(rq), rq, 1);
+	trace_android_rvh_update_rt_rq_load_avg(rq_clock_pelt(rq), rq, p, 1);
 
 	if (task_is_blocked(p))
 		return;
@@ -2033,42 +2028,18 @@ static struct task_struct *pick_next_pushable_task(struct rq *rq)
 }
 
 static inline bool __rt_revalidate_rq_state(struct task_struct *task, struct rq *rq,
-					    struct rq *lowest, bool *retry)
+					    struct rq *lowest)
 {
-	/*
-	 * We had to unlock the run queue. In the mean time, task could have
-	 * migrated already or had its affinity changed. Also make sure that it
-	 * wasn't scheduled on its rq. It is possible the task was scheduled,
-	 * set "migrate_disabled" and then got preempted, so we must check the
-	 * task migration disable flag here too.
-	 */
-	if (task_rq(task) != rq)
-		return false;
-
-	if (!cpumask_test_cpu(lowest->cpu, &task->cpus_mask))
-		return false;
-
-	if (task_on_cpu(rq, task))
-		return false;
-
 	if (!rt_task(task))
 		return false;
-
-	if (is_migration_disabled(task))
-		return false;
-
-	if (!task_on_rq_queued(task))
-		return false;
-
-	return true;
+	return __revalidate_rq_state(task, rq, lowest);
 }
 
-/* XXX: TODO: Consolidate this w/ dl_revalidate_rq_state */
 static inline bool rt_revalidate_rq_state(struct task_struct *task, struct rq *rq,
 					  struct rq *lowest, bool *retry)
 {
 	if (!sched_proxy_exec())
-		return __rt_revalidate_rq_state(task, rq, lowest, retry);
+		return __rt_revalidate_rq_state(task, rq, lowest);
 	/*
 	 * Releasing the rq lock means we need to re-check pushability.
 	 * Some scenarios:
@@ -2362,6 +2333,7 @@ static void push_rt_tasks(struct rq *rq)
  */
 static int rto_next_cpu(struct root_domain *rd)
 {
+	int this_cpu = smp_processor_id();
 	int next;
 	int cpu;
 
@@ -2387,6 +2359,10 @@ static int rto_next_cpu(struct root_domain *rd)
 		trace_android_rvh_rto_next_cpu(rd->rto_cpu, rd->rto_mask, &cpu);
 
 		rd->rto_cpu = cpu;
+
+		/* Do not send IPI to self */
+		if (cpu == this_cpu)
+			continue;
 
 		if (cpu < nr_cpu_ids)
 			return cpu;
@@ -2783,6 +2759,7 @@ static void task_tick_rt(struct rq *rq, struct task_struct *p, int queued)
 
 	update_curr_rt(rq);
 	update_rt_rq_load_avg(rq_clock_pelt(rq), rq, 1);
+	trace_android_rvh_update_rt_rq_load_avg(rq_clock_pelt(rq), rq, p, 1);
 
 	watchdog(rq, p);
 
@@ -3160,6 +3137,12 @@ undo:
 		sysctl_sched_rt_runtime = old_runtime;
 	}
 	mutex_unlock(&mutex);
+
+	/*
+	 * After changing maximum available bandwidth for DEADLINE, we need to
+	 * recompute per root domain and per cpus variables accordingly.
+	 */
+	rebuild_sched_domains();
 
 	return ret;
 }

@@ -20,6 +20,7 @@ struct gunyah_vm;
 
 int __must_check gunyah_vm_get(struct gunyah_vm *ghvm);
 void gunyah_vm_put(struct gunyah_vm *ghvm);
+int gunyah_reclaim_fw_parcel(struct gunyah_vm *ghvm, u32 mem_handle);
 
 /**
  * struct gunyah_auth_vm_mgr_ops - Auth VM Mgr helper ops
@@ -425,6 +426,8 @@ enum gunyah_info_owner {
 };
 
 void *gunyah_get_info(u16 owner, u16 id, size_t *size);
+int gunyah_map_addrspace_info_area(void);
+void gunyah_unmap_addrspace_info_area(void);
 
 #define GUNYAH_API_V1 1
 
@@ -600,8 +603,9 @@ gunyah_hypercall_vcpu_run(u64 capid, unsigned long *resume_data,
 #define GUNYAH_ADDRSPC_MODIFY_FLAG_SANITIZE_BIT		1
 enum gunyah_error
 gunyah_hypercall_addrspc_modify_pages(u64 capid, u64 addr, u64 size, u64 flags);
-
 enum gunyah_error
 gunyah_hypercall_addrspace_find_info_area(unsigned long *ipa, unsigned long *size);
-
+enum gunyah_error
+#define GUNYAH_ADDRSPACE_VMMIO_CONFIGURE_OP_ADD_RANGE	0
+gunyah_hypercall_addrspc_configure_vmmio_range(u64 capid, u64 base, u64 size, u64 op);
 #endif

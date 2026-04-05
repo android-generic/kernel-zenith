@@ -39,6 +39,7 @@ static const struct address_space_operations swap_aops = {
 };
 
 struct address_space *swapper_spaces[MAX_SWAPFILES] __read_mostly;
+EXPORT_SYMBOL_GPL(swapper_spaces);
 static unsigned int nr_swapper_spaces[MAX_SWAPFILES] __read_mostly;
 static bool enable_vma_readahead __read_mostly = true;
 
@@ -246,6 +247,7 @@ void delete_from_swap_cache(struct folio *folio)
 	put_swap_folio(folio, entry);
 	folio_ref_sub(folio, folio_nr_pages(folio));
 }
+EXPORT_SYMBOL_GPL(delete_from_swap_cache);
 
 void clear_shadow_from_swap_cache(int type, unsigned long begin,
 				unsigned long end)
@@ -327,6 +329,8 @@ void free_pages_and_swap_cache(struct encoded_page **pages, int nr)
 		if (unlikely(encoded_page_flags(pages[i]) &
 			     ENCODED_PAGE_BIT_NR_PAGES_NEXT))
 			refs[folios.nr] = encoded_nr_pages(pages[++i]);
+
+		trace_android_vh_free_pages_and_swap_cache(folio);
 
 		if (folio_batch_add(&folios, folio) == 0)
 			folios_put_refs(&folios, refs);

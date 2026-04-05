@@ -247,6 +247,18 @@
 # required audio_platform.ko
   snd_pcm_rate_bit_to_rate
 
+# batman-adv.ko
+  dev_get_iflink
+  skb_prepare_seq_read
+  skb_seq_read
+  ip_mc_check_igmp
+  ipv6_mc_check_mld
+  br_multicast_has_router_adjacent
+  br_multicast_has_querier_anywhere
+  br_multicast_has_querier_adjacent
+  br_multicast_list_adjacent
+  netdev_master_upper_dev_get_rcu
+
 # required haptic.ko
   devm_led_classdev_unregister
 
@@ -287,6 +299,12 @@
   mmc_cqe_post_req
   mmc_put_card
 
+# required mmdvfs.ko
+  devfreq_event_get_event
+
+# required ntfs3.ko
+  filemap_fdatawrite_range_kick
+
 # required pinctrl_sprd.ko
   pinctrl_register
   pinctrl_unregister
@@ -303,6 +321,13 @@
   __traceiter_android_vh_regmap_update
   __tracepoint_android_vh_regmap_update
 
+# required sc2731_charger.ko
+  power_supply_get_battery_info
+  power_supply_put_battery_info
+
+# required sc27xx-vibra.ko
+  input_ff_create_memless
+
 # required sc8546_charger.ko
   __regmap_init_i2c
 
@@ -314,6 +339,7 @@
   mmc_get_ext_csd
   mmc_regulator_disable_vqmmc
   mmc_regulator_enable_vqmmc
+  mmc_sd_switch
   mmc_send_status
   sdhci_enable_v4_mode
   sdhci_request
@@ -328,8 +354,17 @@
 # required sipa_core.ko
   alarm_start
 
+# required spi-sprd-adi.ko
+  devm_register_restart_handler
+
 # required sprd_ase_driver.ko
   alarm_forward
+
+# required sprd_bt_tty.ko
+  tty_port_link_device
+
+# required sprd_camera.ko
+  of_irq_to_resource
 
 # required sprd_charger_manager.ko
   alarm_expires_remaining
@@ -343,6 +378,9 @@
   mipi_dsi_generic_read
   mipi_dsi_set_maximum_return_packet_size
   of_get_drm_display_mode
+
+# required sprd-iommu.ko
+  generic_single_device_group
 
 # required sprd_pmic_adc.ko
   nvmem_cell_read_u16
@@ -367,6 +405,15 @@
   typec_set_vconn_role
   typec_unregister_altmode
   usb_role_switch_get
+
+# required sprd_typec_displayport.ko
+  typec_altmode_enter
+  typec_altmode_exit
+  typec_altmode_get_partner
+  typec_altmode2port
+  __typec_altmode_register_driver
+  typec_altmode_unregister_driver
+  typec_get_negotiated_svdm_version
 
 # required sprd_usb_f_rndis.ko
   gether_cleanup

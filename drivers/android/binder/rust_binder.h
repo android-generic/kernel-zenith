@@ -4,6 +4,7 @@
 
 #include <uapi/linux/android/binder.h>
 #include <uapi/linux/android/binderfs.h>
+#include <linux/android_kabi.h>
 
 /*
  * These symbols are exposed by `rust_binderfs.c` and exist here so that Rust
@@ -15,22 +16,6 @@ struct dentry;
 struct inode;
 struct dentry *rust_binderfs_create_proc_file(struct inode *nodp, int pid);
 void rust_binderfs_remove_file(struct dentry *dentry);
-
-typedef void *rust_binder_context;
-/**
- * struct binder_device - information about a binder device node
- * @minor:     the minor number used by this device
- * @ctx:       the Rust Context used by this device, or null for binder-control
- *
- * This is used as the private data for files directly in binderfs, but not
- * files in the binder_logs subdirectory. This struct owns a refcount on `ctx`
- * and the entry for `minor` in `binderfs_minors`. For binder-control `ctx` is
- * null.
- */
-struct binder_device {
-	int minor;
-	rust_binder_context ctx;
-};
 
 /*
  * The internal data types in the Rust Binder driver are opaque to C, so we use
@@ -49,23 +34,39 @@ struct rb_transaction_layout {
 	size_t from_thread;
 	size_t to_proc;
 	size_t target_node;
+	ANDROID_BACKPORT_RESERVE(0);
+	ANDROID_BACKPORT_RESERVE(1);
+	ANDROID_BACKPORT_RESERVE(2);
+	ANDROID_BACKPORT_RESERVE(3);
 };
 
 struct rb_thread_layout {
 	size_t arc_offset;
 	size_t process;
 	size_t id;
+	ANDROID_BACKPORT_RESERVE(0);
+	ANDROID_BACKPORT_RESERVE(1);
+	ANDROID_BACKPORT_RESERVE(2);
+	ANDROID_BACKPORT_RESERVE(3);
 };
 
 struct rb_process_layout {
 	size_t arc_offset;
 	size_t task;
+	ANDROID_BACKPORT_RESERVE(0);
+	ANDROID_BACKPORT_RESERVE(1);
+	ANDROID_BACKPORT_RESERVE(2);
+	ANDROID_BACKPORT_RESERVE(3);
 };
 
 struct rb_node_layout {
 	size_t arc_offset;
 	size_t debug_id;
 	size_t ptr;
+	ANDROID_BACKPORT_RESERVE(0);
+	ANDROID_BACKPORT_RESERVE(1);
+	ANDROID_BACKPORT_RESERVE(2);
+	ANDROID_BACKPORT_RESERVE(3);
 };
 
 struct rust_binder_layout {
@@ -73,9 +74,17 @@ struct rust_binder_layout {
 	struct rb_thread_layout th;
 	struct rb_process_layout p;
 	struct rb_node_layout n;
+	ANDROID_BACKPORT_RESERVE(0);
+	ANDROID_BACKPORT_RESERVE(1);
+	ANDROID_BACKPORT_RESERVE(2);
+	ANDROID_BACKPORT_RESERVE(3);
+	ANDROID_BACKPORT_RESERVE(4);
+	ANDROID_BACKPORT_RESERVE(5);
+	ANDROID_BACKPORT_RESERVE(6);
+	ANDROID_BACKPORT_RESERVE(7);
 };
 
-extern const struct rust_binder_layout RUST_BINDER_LAYOUT;
+extern struct rust_binder_layout RUST_BINDER_LAYOUT;
 
 static inline size_t rust_binder_transaction_debug_id(rust_binder_transaction t)
 {

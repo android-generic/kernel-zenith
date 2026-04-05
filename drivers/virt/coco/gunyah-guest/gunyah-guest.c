@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved. */
+/* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries. */
 
 #include <linux/gunyah.h>
 #include <linux/init.h>
+#include <linux/io.h>
+#include <linux/pgtable.h>
+#include <linux/memblock.h>
+#include <linux/of_fdt.h>
+#include <linux/libfdt.h>
 #include <linux/virtio_balloon.h>
 
 #include <asm/hypervisor.h>
@@ -15,6 +20,29 @@ struct addrspace_info_area_rootvm_addrspace_cap {
 };
 
 static u64 our_addrspace_capid;
+
+static int gunyah_mmio_guard_ioremap_hook(phys_addr_t phys, size_t size, pgprot_t *prot)
+{
+	pteval_t protval = pgprot_val(*prot);
+	int ret;
+
+	/*
+	 * We only expect MMIO emulation for regions mapped with device
+	 * attributes.
+	 */
+	if (protval != PROT_DEVICE_nGnRE && protval != PROT_DEVICE_nGnRnE)
+		return 0;
+
+	ret = gunyah_hypercall_addrspc_configure_vmmio_range(our_addrspace_capid,
+				phys, size, GUNYAH_ADDRSPACE_VMMIO_CONFIGURE_OP_ADD_RANGE);
+
+	if (ret == GUNYAH_ERROR_UNIMPLEMENTED || ret == GUNYAH_ERROR_BUSY
+			|| ret == GUNYAH_ERROR_CSPACE_INSUF_RIGHTS)
+		/* Gunyah would have configured VMMIO via DT */
+		ret = GUNYAH_ERROR_OK;
+
+	return gunyah_error_remap(ret);
+}
 
 #ifdef CONFIG_VIRTIO_BALLOON_HYP_OPS
 static void gunyah_page_relinquish(struct page *page,  unsigned int nr)
@@ -71,9 +99,54 @@ static int __init gunyah_guest_init(void)
 
 	our_addrspace_capid = info->addrspace_cap;
 
+	arm64_ioremap_prot_hook_register(&gunyah_mmio_guard_ioremap_hook);
 #ifdef CONFIG_VIRTIO_BALLOON_HYP_OPS
 	virtio_balloon_hyp_ops = &gunyah_virtio_balloon_hyp_ops;
 #endif
 	return 0;
 }
 core_initcall_sync(gunyah_guest_init);
+
+static int __init gunyah_map_restricted_dma(char *unused)
+{
+	const void *fdt = initial_boot_params;
+	int resv, off, len;
+	const __be32 *reg, *p;
+	phys_addr_t base, size;
+
+	if (!fdt)
+		return 0;
+
+	resv = fdt_path_offset(fdt, "/reserved-memory");
+	if (resv < 0)
+		return 0;
+
+	for (off = fdt_first_subnode(fdt, resv); off >= 0; off = fdt_next_subnode(fdt, off)) {
+		if (of_flat_dt_is_compatible(off, "restricted-dma-pool"))
+			break;
+	}
+
+	if (off < 0)
+		return 0;
+
+	if (fdt_getprop(fdt, off, "no-map", &len))
+		return 0;
+
+	reg = fdt_getprop(fdt, off, "reg", &len);
+	if (!reg)
+		return 0;
+
+	p = reg;
+	base = dt_mem_next_cell(dt_root_addr_cells, &p);
+	size = dt_mem_next_cell(dt_root_size_cells, &p);
+	if (!size)
+		return 0;
+
+	/* Make it mappable by the direct map; reserved-memory scan will reserve it */
+	memblock_add(base, size);
+
+	pr_debug("%s: added %pa..%pa to memblock.memory\n", __func__,
+		&base, &(phys_addr_t){ base + size - 1 });
+	return 0;
+}
+early_param("reset_devices", gunyah_map_restricted_dma);

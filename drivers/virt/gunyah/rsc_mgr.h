@@ -48,6 +48,7 @@ enum gunyah_rm_vm_status {
 	GUNYAH_RM_VM_STATUS_EXITED		= 9,
 	GUNYAH_RM_VM_STATUS_RESETTING		= 10,
 	GUNYAH_RM_VM_STATUS_RESET		= 11,
+	GUNYAH_RM_VM_STATUS_RESET_FAILED	= 12,
 	/* clang-format on */
 };
 

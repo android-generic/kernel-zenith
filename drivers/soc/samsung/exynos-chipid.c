@@ -12,6 +12,7 @@
  * Samsung Exynos SoC Adaptive Supply Voltage and Chip ID support
  */
 
+#include <linux/array_size.h>
 #include <linux/device.h>
 #include <linux/errno.h>
 #include <linux/mfd/syscon.h>
@@ -197,8 +198,8 @@ static struct platform_driver exynos_chipid_driver = {
 		.name = "exynos-chipid",
 		.of_match_table = exynos_chipid_of_device_ids,
 	},
-	.probe	= exynos_chipid_probe,
-	.remove_new = exynos_chipid_remove,
+	.probe = exynos_chipid_probe,
+	.remove = exynos_chipid_remove,
 };
 module_platform_driver(exynos_chipid_driver);
 

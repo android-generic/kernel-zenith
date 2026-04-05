@@ -15,8 +15,11 @@
 #include <linux/thermal.h>
 #include <linux/types.h>
 #include <linux/string.h>
+#include <trace/hooks/thermal.h>
 
 #include "thermal_core.h"
+
+ANDROID_KABI_DECLONLY(trace_eval_map);
 
 /***   functions parsing device tree nodes   ***/
 
@@ -87,6 +90,7 @@ static int thermal_of_populate_trip(struct device_node *np,
 	}
 
 	trip->flags = THERMAL_TRIP_FLAG_RW_TEMP;
+	trace_android_vh_update_thermal_trip_flag(trip);
 
 	trip->priv = np;
 
@@ -299,10 +303,10 @@ static bool thermal_of_cm_lookup(struct device_node *cm_np,
 				 struct cooling_spec *c)
 {
 	for_each_child_of_node_scoped(cm_np, child) {
-		struct device_node *tr_np;
 		int count, i;
 
-		tr_np = of_parse_phandle(child, "trip", 0);
+		struct device_node *tr_np __free(device_node) =
+			of_parse_phandle(child, "trip", 0);
 		if (tr_np != trip->priv)
 			continue;
 

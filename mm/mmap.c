@@ -58,6 +58,9 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/mmap.h>
 
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/mm.h>
+
 #include "internal.h"
 
 EXPORT_TRACEPOINT_SYMBOL_GPL(vm_unmapped_area);
@@ -340,7 +343,6 @@ unsigned long do_mmap(struct file *file, unsigned long addr,
 			unsigned long pgoff, unsigned long *populate,
 			struct list_head *uf)
 {
-	unsigned long file_backed_len = 0;
 	struct mm_struct *mm = current->mm;
 	int pkey = 0;
 
@@ -369,7 +371,7 @@ unsigned long do_mmap(struct file *file, unsigned long addr,
 		addr = round_hint_to_min(addr);
 
 	/* Careful about overflows.. */
-	len = __COMPAT_PAGE_ALIGN(len, flags);
+	len = __PAGE_ALIGN(len);
 	if (!len)
 		return -ENOMEM;
 
@@ -378,6 +380,7 @@ unsigned long do_mmap(struct file *file, unsigned long addr,
 		return -EOVERFLOW;
 
 	/* Too many mappings? */
+	trace_android_vh_do_mmap_map_count(file, addr, len, prot, flags);
 	if (mm->map_count > sysctl_max_map_count)
 		return -ENOMEM;
 
@@ -430,8 +433,6 @@ unsigned long do_mmap(struct file *file, unsigned long addr,
 
 		if (!file_mmap_ok(file, inode, pgoff, len))
 			return -EOVERFLOW;
-
-		file_backed_len = __filemap_len(inode, pgoff, len, flags);
 
 		flags_mask = LEGACY_MAP_MASK;
 		if (file->f_op->fop_flags & FOP_MMAP_SYNC)
@@ -561,14 +562,13 @@ unsigned long do_mmap(struct file *file, unsigned long addr,
 			vm_flags |= VM_NORESERVE;
 	}
 
+	pgoff = __bpf_pgoff_fixup(file, pgoff);
+
 	addr = mmap_region(file, addr, len, vm_flags, pgoff, uf);
 	if (!IS_ERR_VALUE(addr) &&
 	    ((vm_flags & VM_LOCKED) ||
 	     (flags & (MAP_POPULATE | MAP_NONBLOCK)) == MAP_POPULATE))
 		*populate = len;
-
-	__filemap_fixup(addr, prot, file_backed_len, len);
-
 	return addr;
 }
 

@@ -152,8 +152,7 @@ static int __snapshot_host_stage2(const struct kvm_pgtable_visit_ctx *ctx,
 	else if (!addr_is_memory(start))
 		prot |= IOMMU_MMIO | IOMMU_NOEXEC;
 
-	ops->host_stage2_idmap(start, end, prot);
-	return 0;
+	return ops->host_stage2_idmap(start, end, prot);
 }
 
 static int kvm_iommu_snapshot_host_stage2(struct kvm_iommu_ops *ops)
@@ -230,19 +229,30 @@ int kvm_iommu_register_ops(struct kvm_iommu_ops *ops, pkvm_handle_t *drv_id)
 	return ret;
 }
 
-void kvm_iommu_host_stage2_idmap(phys_addr_t start, phys_addr_t end,
-				 enum kvm_pgtable_prot prot)
+int kvm_iommu_host_stage2_idmap(phys_addr_t start, phys_addr_t end, enum kvm_pgtable_prot prot)
 {
 	struct kvm_iommu_ops *kvm_iommu_ops;
+	int ret = 0;
 
 	hyp_assert_lock_held(&host_mmu.lock);
 
 	trace_iommu_idmap(start, end, prot);
 	kvm_iommu_drv_lock();
 	for_each_drv(kvm_iommu_ops) {
-		kvm_iommu_ops->host_stage2_idmap(start, end, pkvm_to_iommu_prot(prot, start));
+		/*
+		 * In the case where several drivers are used, it is possible to
+		 * fail in the middle of the idmap. Sadly if it happens, we can't
+		 * rollback: we have no idea what was the previous prot. So we
+		 * will have to live with this transient state where a page
+		 * might be owned by host but unmapped from one of its IOMMU.
+		 */
+		ret = kvm_iommu_ops->host_stage2_idmap(start, end, pkvm_to_iommu_prot(prot, start));
+		if (ret)
+			break;
 	}
 	kvm_iommu_drv_unlock();
+
+	return ret;
 }
 
 /* Return current vcpu or NULL for host. */
@@ -787,7 +797,7 @@ phys_addr_t kvm_iommu_iova_to_phys(pkvm_handle_t domain_id, unsigned long iova)
 }
 
 int kvm_iommu_set_identity(pkvm_handle_t drv_id, pkvm_handle_t iommu,
-			   pkvm_handle_t dev, bool on)
+			   pkvm_handle_t dev, bool on, unsigned long flags)
 {
 	struct kvm_iommu_ops *kvm_iommu_ops = get_drv(drv_id);
 	int ret;
@@ -799,7 +809,7 @@ int kvm_iommu_set_identity(pkvm_handle_t drv_id, pkvm_handle_t iommu,
 	ret = pkvm_devices_get_context(iommu, dev, NULL);
 	if (ret)
 		return ret;
-	ret = kvm_iommu_ops->set_identity(iommu, dev, on);
+	ret = kvm_iommu_ops->set_identity(iommu, dev, on, flags);
 	pkvm_devices_put_context(iommu, dev);
 	return ret;
 }

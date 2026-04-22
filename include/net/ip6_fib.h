@@ -13,6 +13,7 @@
 #include <linux/rtnetlink.h>
 #include <linux/spinlock.h>
 #include <linux/notifier.h>
+#include <linux/android_kabi.h>
 #include <net/dst.h>
 #include <net/flow.h>
 #include <net/ip_fib.h>
@@ -62,6 +63,8 @@ struct fib6_config {
 	struct nlattr	*fc_encap;
 	u16		fc_encap_type;
 	bool		fc_is_fdb;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct fib6_node {
@@ -78,6 +81,8 @@ struct fib6_node {
 	int			fn_sernum;
 	struct fib6_info __rcu	*rr_ptr;
 	struct rcu_head		rcu;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct fib6_gc_args {
@@ -201,6 +206,9 @@ struct fib6_info {
 	struct list_head		purge_link;
 	struct rcu_head			rcu;
 	struct nexthop			*nh;
+
+	ANDROID_KABI_RESERVE(1);
+
 	struct fib6_nh			fib6_nh[];
 };
 
@@ -217,6 +225,8 @@ struct rt6_info {
 
 	/* more non-fragment space at head required */
 	unsigned short			rt6i_nfheader_len;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct fib6_result {
@@ -507,12 +517,14 @@ void fib6_rt_update(struct net *net, struct fib6_info *rt,
 void inet6_rt_notify(int event, struct fib6_info *rt, struct nl_info *info,
 		     unsigned int flags);
 
+void fib6_age_exceptions(struct fib6_info *rt, struct fib6_gc_args *gc_args,
+			 unsigned long now);
 void fib6_run_gc(unsigned long expires, struct net *net, bool force);
-
 void fib6_gc_cleanup(void);
 
 int fib6_init(void);
 
+#if IS_ENABLED(CONFIG_IPV6)
 /* Add the route to the gc list if it is not already there
  *
  * The callers should hold f6i->fib6_table->tb6_lock.
@@ -544,6 +556,23 @@ static inline void fib6_remove_gc_list(struct fib6_info *f6i)
 	if (!hlist_unhashed(&f6i->gc_link))
 		hlist_del_init(&f6i->gc_link);
 }
+
+static inline void fib6_may_remove_gc_list(struct net *net,
+					   struct fib6_info *f6i)
+{
+	struct fib6_gc_args gc_args;
+
+	if (hlist_unhashed(&f6i->gc_link))
+		return;
+
+	gc_args.timeout = READ_ONCE(net->ipv6.sysctl.ip6_rt_gc_interval);
+	gc_args.more = 0;
+
+	rcu_read_lock();
+	fib6_age_exceptions(f6i, &gc_args, jiffies);
+	rcu_read_unlock();
+}
+#endif
 
 struct ipv6_route_iter {
 	struct seq_net_private p;

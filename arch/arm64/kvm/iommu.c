@@ -83,7 +83,7 @@ EXPORT_SYMBOL(kvm_iommu_register_hyp_ops);
 int kvm_iommu_init_driver(void)
 {
 	struct kvm_iommu_driver *driver;
-	int ret = 0;
+	int ret = -ENODEV;
 
 	guard(mutex)(&kvm_iommu_reg_lock);
 
@@ -96,7 +96,7 @@ int kvm_iommu_init_driver(void)
 	}
 
 	if (ret)
-		kvm_err("Failed to init iommu driver: %d\n", ret);
+		kvm_err("Failed to init iommu driver, do not run confidential workloads in virtual machines: %d\n", ret);
 	return ret;
 }
 
@@ -305,10 +305,10 @@ int pkvm_iommu_resume(int device_id)
 EXPORT_SYMBOL(pkvm_iommu_resume);
 
 int kvm_iommu_set_identity(pkvm_handle_t drv_id, pkvm_handle_t iommu,
-			   pkvm_handle_t dev, bool on)
+			   pkvm_handle_t dev, bool on, unsigned long flags)
 {
 	return kvm_call_hyp_nvhe_mc(__pkvm_host_iommu_set_identity, drv_id,
-				    iommu, dev, on);
+				    iommu, dev, on, flags);
 }
 EXPORT_SYMBOL(kvm_iommu_set_identity);
 

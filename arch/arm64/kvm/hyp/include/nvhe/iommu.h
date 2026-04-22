@@ -18,6 +18,7 @@ struct kvm_hyp_iommu_domain {
 	void			*priv;
 	struct kvm_iommu_ops	*driver;
 	void			*owner;
+	ANDROID_KABI_RESERVE(1);
 };
 
 int kvm_iommu_dev_block_dma(pkvm_handle_t iommu_id, u32 endpoint_id, bool host_to_guest);
@@ -27,7 +28,7 @@ int kvm_iommu_id_to_token(pkvm_handle_t smmu_id, u64 *out_token);
 
 struct kvm_iommu_ops {
 	int (*init)(pkvm_handle_t drv_id);
-	void (*host_stage2_idmap)(phys_addr_t start, phys_addr_t end, int prot);
+	int (*host_stage2_idmap)(phys_addr_t start, phys_addr_t end, int prot);
 	int (*attach_dev)(pkvm_handle_t iommu, struct kvm_hyp_iommu_domain *domain,
 			  pkvm_handle_t dev, u32 pasid, u32 pasid_bits, unsigned long flags);
 	int (*attach_dev_nested)(pkvm_handle_t iommu, struct kvm_hyp_iommu_domain *domain,
@@ -48,7 +49,8 @@ struct kvm_iommu_ops {
 	phys_addr_t (*iova_to_phys)(struct kvm_hyp_iommu_domain *domain, unsigned long iova);
 	void (*iotlb_sync)(struct kvm_hyp_iommu_domain *domain,
 			   struct iommu_iotlb_gather *gather);
-	int (*set_identity)(pkvm_handle_t iommu, pkvm_handle_t dev, bool state);
+	int (*set_identity)(pkvm_handle_t iommu, pkvm_handle_t dev,
+			    bool state, unsigned long flags);
 	int (*iotlb_sync_map)(struct kvm_hyp_iommu_domain *domain,
 			      unsigned long iova, size_t size);
 	int (*dev_block_dma)(pkvm_handle_t iommu, u32 endpoint_id,
@@ -57,12 +59,20 @@ struct kvm_iommu_ops {
 	void (*iotlb_inv_nested_domain)(struct kvm_hyp_iommu_domain *domain, unsigned long iova,
 					size_t size, size_t granule, bool leaf);
 	int (*nested_cfg_sync)(pkvm_handle_t iommu, void *cmd_desc, size_t cmd_desc_size);
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
+	ANDROID_KABI_RESERVE(5);
+	ANDROID_KABI_RESERVE(6);
+	ANDROID_KABI_RESERVE(7);
+	ANDROID_KABI_RESERVE(8);
 };
 
 int kvm_iommu_init(void *pool_base, size_t nr_pages);
 int kvm_iommu_register_ops(struct kvm_iommu_ops *ops, pkvm_handle_t *drv_id);
 
-void kvm_iommu_host_stage2_idmap(phys_addr_t start, phys_addr_t end,
+int kvm_iommu_host_stage2_idmap(phys_addr_t start, phys_addr_t end,
 				 enum kvm_pgtable_prot prot);
 void *kvm_iommu_donate_pages_atomic(u8 order);
 void kvm_iommu_reclaim_pages_atomic(void *ptr);
@@ -89,7 +99,7 @@ size_t kvm_iommu_unmap_pages(pkvm_handle_t domain_id, unsigned long iova,
 			     size_t pgsize, size_t pgcount);
 phys_addr_t kvm_iommu_iova_to_phys(pkvm_handle_t domain_id, unsigned long iova);
 int kvm_iommu_set_identity(pkvm_handle_t drv_id, pkvm_handle_t iommu,
-			   pkvm_handle_t dev, bool on);
+			   pkvm_handle_t dev, bool on, unsigned long flags);
 size_t kvm_iommu_map_sg(pkvm_handle_t domain, unsigned long iova, struct kvm_iommu_sg *sg,
 			unsigned int nent, unsigned int prot);
 int kvm_iommu_iotlb_sync_map(pkvm_handle_t domain_id,

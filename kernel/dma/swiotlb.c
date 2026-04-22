@@ -30,6 +30,7 @@
 #include <linux/gfp.h>
 #include <linux/highmem.h>
 #include <linux/io.h>
+#include <linux/kmsan-checks.h>
 #include <linux/iommu-helper.h>
 #include <linux/init.h>
 #include <linux/memblock.h>
@@ -62,6 +63,8 @@
 #define IO_TLB_MIN_SLABS ((1<<20) >> IO_TLB_SHIFT)
 
 #define INVALID_PHYS_ADDR (~(phys_addr_t)0)
+
+#define DMA_POOL_FLAGS_NO_DECRYPT	(uintptr_t)BIT(0)
 
 /**
  * struct io_tlb_slot - IO TLB slot descriptor
@@ -907,10 +910,19 @@ static void swiotlb_bounce(struct device *dev, phys_addr_t tlb_addr, size_t size
 
 			local_irq_save(flags);
 			page = pfn_to_page(pfn);
-			if (dir == DMA_TO_DEVICE)
+			if (dir == DMA_TO_DEVICE) {
+				/*
+				 * Ideally, kmsan_check_highmem_page()
+				 * could be used here to detect infoleaks,
+				 * but callers may map uninitialized buffers
+				 * that will be written by the device,
+				 * causing false positives.
+				 */
 				memcpy_from_page(vaddr, page, offset, sz);
-			else
+			} else {
+				kmsan_unpoison_memory(vaddr, sz);
 				memcpy_to_page(page, offset, vaddr, sz);
+			}
 			local_irq_restore(flags);
 
 			size -= sz;
@@ -919,8 +931,15 @@ static void swiotlb_bounce(struct device *dev, phys_addr_t tlb_addr, size_t size
 			offset = 0;
 		}
 	} else if (dir == DMA_TO_DEVICE) {
+		/*
+		 * Ideally, kmsan_check_memory() could be used here to detect
+		 * infoleaks (uninitialized data being sent to device), but
+		 * callers may map uninitialized buffers that will be written
+		 * by the device, causing false positives.
+		 */
 		memcpy(vaddr, phys_to_virt(orig_addr), size);
 	} else {
+		kmsan_unpoison_memory(vaddr, size);
 		memcpy(phys_to_virt(orig_addr), vaddr, size);
 	}
 }
@@ -1800,9 +1819,12 @@ static int rmem_swiotlb_device_init(struct reserved_mem *rmem,
 {
 	struct io_tlb_mem *mem = rmem->priv;
 	unsigned long nslabs = rmem->size >> IO_TLB_SHIFT;
+	bool no_decrypt = (uintptr_t)mem & DMA_POOL_FLAGS_NO_DECRYPT;
 
 	/* Set Per-device io tlb area to one */
 	unsigned int nareas = 1;
+
+	mem = (struct io_tlb_mem *)((uintptr_t)mem & ~DMA_POOL_FLAGS_NO_DECRYPT);
 
 	if (PageHighMem(pfn_to_page(PHYS_PFN(rmem->base)))) {
 		dev_err(dev, "Restricted DMA pool must be accessible within the linear mapping.");
@@ -1836,8 +1858,10 @@ static int rmem_swiotlb_device_init(struct reserved_mem *rmem,
 			return -ENOMEM;
 		}
 
-		set_memory_decrypted((unsigned long)phys_to_virt(rmem->base),
-				     rmem->size >> PAGE_SHIFT);
+		if (!no_decrypt)
+			set_memory_decrypted((unsigned long)phys_to_virt(rmem->base),
+					     rmem->size >> PAGE_SHIFT);
+
 		swiotlb_init_io_tlb_pool(pool, rmem->base, nslabs,
 					 false, nareas);
 		mem->force_bounce = true;
@@ -1852,6 +1876,9 @@ static int rmem_swiotlb_device_init(struct reserved_mem *rmem,
 
 		swiotlb_create_debugfs_files(mem, rmem->name);
 	}
+
+	if (no_decrypt)
+		dev_info(dev, "is using undecrypted restricted DMA pool %s\n", rmem->name);
 
 	dev->dma_io_tlb_mem = mem;
 
@@ -1878,6 +1905,10 @@ static int __init rmem_swiotlb_setup(struct reserved_mem *rmem)
 	    of_get_flat_dt_prop(node, "linux,dma-default", NULL) ||
 	    of_get_flat_dt_prop(node, "no-map", NULL))
 		return -EINVAL;
+
+	/* It's too early to allocate memory, so signal this in the priv pointer. */
+	rmem->priv = (void *)(of_get_flat_dt_prop(node, "no-decrypt", NULL) ?
+			      DMA_POOL_FLAGS_NO_DECRYPT : 0);
 
 	rmem->ops = &rmem_swiotlb_ops;
 	pr_info("Reserved memory: created restricted DMA pool at %pa, size %ld MiB\n",

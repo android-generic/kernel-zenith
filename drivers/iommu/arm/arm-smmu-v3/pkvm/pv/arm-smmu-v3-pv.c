@@ -24,7 +24,8 @@ struct kvm_smmu_unmapped {
 	size_t size[KVM_SMMU_UNMAPPED_MAX];
 };
 
-static DEFINE_PER_CPU(struct kvm_smmu_unmapped, kvm_smmu_deferred_unuse);
+static struct kvm_smmu_unmapped kvm_smmu_deferred_unuse[NR_CPUS];
+#define smmu_this_cpu_ptr(arr)		(&((arr)[hyp_smp_processor_id()]))
 
 #ifdef MODULE
 void *memset(void *dst, int c, size_t count)
@@ -405,7 +406,7 @@ static void smmu_flush_deferred_unuse(struct kvm_smmu_unmapped *unmapped)
  */
 static void smmu_put_pages(void *cookie, u64 phys, size_t size, struct iommu_iotlb_gather *gather)
 {
-	struct kvm_smmu_unmapped *unmapped = this_cpu_ptr(&kvm_smmu_deferred_unuse);
+	struct kvm_smmu_unmapped *unmapped = smmu_this_cpu_ptr(kvm_smmu_deferred_unuse);
 	struct kvm_hyp_iommu_domain *domain = cookie;
 
 	if (unmapped->ptr == KVM_SMMU_UNMAPPED_MAX) {
@@ -769,7 +770,8 @@ out_unlock:
 	return ret;
 }
 
-static int smmu_set_identity(pkvm_handle_t iommu, pkvm_handle_t sid, bool on)
+static int smmu_set_identity(pkvm_handle_t iommu, pkvm_handle_t sid,
+			     bool on, unsigned long flags)
 {
 	struct hyp_arm_smmu_v3_device_pv *smmu = smmu_id_to_ptr(iommu);
 	struct arm_smmu_ste *dst;
@@ -948,7 +950,7 @@ static size_t smmu_unmap_pages(struct kvm_hyp_iommu_domain *domain, unsigned lon
 		pgcount -= unmapped / pgsize;
 	}
 	hyp_spin_unlock(&smmu_domain->pgt_lock);
-	smmu_flush_deferred_unuse(this_cpu_ptr(&kvm_smmu_deferred_unuse));
+	smmu_flush_deferred_unuse(smmu_this_cpu_ptr(kvm_smmu_deferred_unuse));
 	return total_unmapped;
 }
 
@@ -976,7 +978,7 @@ static void smmu_free_domain(struct kvm_hyp_iommu_domain *domain)
 	if (smmu_domain->pgtable)
 		kvm_arm_io_pgtable_free(smmu_domain->pgtable);
 
-	smmu_flush_deferred_unuse(this_cpu_ptr(&kvm_smmu_deferred_unuse));
+	smmu_flush_deferred_unuse(smmu_this_cpu_ptr(kvm_smmu_deferred_unuse));
 	hyp_free(smmu_domain);
 }
 
@@ -1318,7 +1320,7 @@ static size_t smmu_pgsize_idmap(size_t size, u64 paddr, size_t pgsize_bitmap)
 	return BIT(__fls(pgsizes));
 }
 
-static void smmu_host_stage2_idmap(phys_addr_t start, phys_addr_t end, int prot)
+static int smmu_host_stage2_idmap(phys_addr_t start, phys_addr_t end, int prot)
 {
 	size_t size = end - start;
 	size_t pgsize, pgcount;
@@ -1328,19 +1330,27 @@ static void smmu_host_stage2_idmap(phys_addr_t start, phys_addr_t end, int prot)
 
 	end = min(end, BIT(pgtable->cfg.oas));
 	if (start >= end)
-		return;
+		return 0;
 
 	if (prot) {
+		if (!(prot & IOMMU_MMIO))
+			prot |= IOMMU_CACHE;
+
 		while (size) {
 			mapped = 0;
 			pgsize = smmu_pgsize_idmap(size, start, pgtable->cfg.pgsize_bitmap);
 			pgcount = size / pgsize;
 			ret = pgtable->ops.map_pages(&pgtable->ops, start, start,
 						     pgsize, pgcount, prot, 0, &mapped);
+			/*
+			 * Failing to map isn't compromising security. Make sure we don't crash for
+			 * that.
+			 */
+			if (ret || !mapped)
+				return 0;
+
 			size -= mapped;
 			start += mapped;
-			if (!mapped || ret)
-				return;
 		}
 	} else {
 		while (size) {
@@ -1348,14 +1358,18 @@ static void smmu_host_stage2_idmap(phys_addr_t start, phys_addr_t end, int prot)
 			pgcount = size / pgsize;
 			unmapped = pgtable->ops.unmap_pages(&pgtable->ops, start,
 							    pgsize, pgcount, NULL);
+			if (!unmapped)
+				break;
+
 			size -= unmapped;
 			start += unmapped;
-			if (!unmapped)
-				return;
 		}
 		/* Some memory were not unmapped. */
-		WARN_ON(size);
+		if (WARN_ON(size))
+			return -EINVAL;
 	}
+
+	return 0;
 }
 
 static void smmu_tlb_inv_range_idmap(unsigned long iova, size_t size, size_t granule,

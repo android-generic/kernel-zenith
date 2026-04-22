@@ -2632,6 +2632,7 @@ static struct task_struct *__pick_task_dl(struct rq *rq, struct rq_flags *rf)
 	struct sched_dl_entity *dl_se;
 	struct dl_rq *dl_rq = &rq->dl;
 	struct task_struct *p;
+	bool skip = false;
 
 again:
 	if (!sched_dl_runnable(rq))
@@ -2642,7 +2643,8 @@ again:
 
 	if (dl_server(dl_se)) {
 		p = dl_se->server_pick_task(dl_se, rf);
-		if (!p) {
+		trace_android_rvh_dl_server_stop_skip(dl_se, rq, p, &skip);
+		if (!p || skip) {
 			dl_server_stop(dl_se);
 			goto again;
 		}
@@ -2832,7 +2834,7 @@ static int find_later_rq(struct task_struct *sched_ctx, struct task_struct *exec
 
 static struct task_struct *pick_next_pushable_dl_task(struct rq *rq)
 {
-	struct task_struct *p = NULL;
+	struct task_struct *i, *p = NULL;
 	struct rb_node *next_node;
 
 	if (!has_pushable_dl_tasks(rq))
@@ -2840,15 +2842,17 @@ static struct task_struct *pick_next_pushable_dl_task(struct rq *rq)
 
 	next_node = rb_first_cached(&rq->dl.pushable_dl_tasks_root);
 	while (next_node) {
-		p = __node_2_pdl(next_node);
+		i = __node_2_pdl(next_node);
 		/*
 		 * cpu argument doesn't matter because we treat a -1 result
 		 * (pushable but can't go to cpu0) the same as a 1 result
 		 * (pushable to cpu0). All we care about here is general
 		 * pushability.
 		 */
-		if (task_is_pushable(rq, p, 0))
+		if (task_is_pushable(rq, i, 0)) {
+			p = i;
 			break;
+		}
 
 		next_node = rb_next(next_node);
 	}

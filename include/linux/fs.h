@@ -1171,6 +1171,16 @@ struct file_ra_state {
 	loff_t prev_pos;
 };
 
+/* For GKI */
+#define DEFINE_RA_MMAP_MISS(ra)						\
+	struct file_ra_state_mmap_miss *ra_mmap_miss =			\
+		(struct file_ra_state_mmap_miss *)&(ra)->mmap_miss;
+
+struct file_ra_state_mmap_miss {
+	unsigned short order;
+	unsigned short mmap_miss;
+};
+
 /*
  * Check if @index falls in the readahead windows.
  */
@@ -1248,6 +1258,9 @@ struct file {
 	};
 	file_ref_t			f_ref;
 	/* --- cacheline 3 boundary (192 bytes) --- */
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 } __randomize_layout
   __attribute__((aligned(4)));	/* lest something weird decides that 2 is OK */
 
@@ -1419,6 +1432,7 @@ extern int send_sigurg(struct file *file);
 #define SB_I_NOUMASK	0x00001000	/* VFS does not apply umask */
 #define SB_I_NOIDMAP	0x00002000	/* No idmapped mounts on this superblock */
 #define SB_I_ALLOW_HSM	0x00004000	/* Allow HSM events on this superblock */
+#define SB_I_NO_DATA_INTEGRITY	0x00008000 /* fs cannot guarantee data persistence on sync */
 
 /* Possible states of 'frozen' field */
 enum {
